@@ -1,0 +1,97 @@
+{
+  "name": "Kaius Meteor",
+  "age": 18,
+  "terms_served": 0,
+  "characteristics": {
+    "strength": 8,
+    "dexterity": 4,
+    "endurance": 8,
+    "intelligence": 9,
+    "education": 5,
+    "social": 10
+  },
+  "skills": {
+    "Engineering": 1
+  },
+  "career_history": [
+    {
+      "event_type": "enlistment_attempt",
+      "service": "Navy",
+      "roll": 8,
+      "modifier": 1,
+      "modifier_details": [
+        "Intelligence 8≥8 (+1)"
+      ],
+      "target": 8,
+      "total": 9,
+      "success": true,
+      "outcome": "enlisted",
+      "assigned_service": "Navy",
+      "skill_eligibilities_granted": 2
+    },
+    {
+      "event_type": "commission_check",
+      "career": "Navy",
+      "applicable": true,
+      "target": 10,
+      "modifier": 1,
+      "modifier_details": [
+        "Social 10≥9 (+1)"
+      ],
+      "roll": 8,
+      "total": 9,
+      "success": false,
+      "outcome": "not commissioned",
+      "skill_eligibilities_granted": 0
+    },
+    {
+      "event_type": "promotion_check",
+      "career": "Navy",
+      "current_rank": 0,
+      "applicable": false,
+      "reason": "Character is not commissioned",
+      "success": false,
+      "outcome": "not applicable"
+    },
+    {
+      "event_type": "skill_resolution",
+      "career": "Navy",
+      "available_tables": {
+        "personal": true,
+        "service": true,
+        "advanced": true,
+        "education": false
+      },
+      "table_choice_method": "player",
+      "table_choice": "personal",
+      "roll": 4,
+      "skill_gained": "+1 INT",
+      "result_type": "characteristic_increase",
+      "characteristic": "intelligence",
+      "old_value": 8,
+      "new_value": 9,
+      "skill_eligibilities_consumed": 1,
+      "skill_eligibilities_remaining": 1
+    },
+    {
+      "event_type": "skill_resolution",
+      "career": "Navy",
+      "available_tables": {
+        "personal": true,
+        "service": true,
+        "advanced": true,
+        "education": false
+      },
+      "table_choice_method": "player",
+      "table_choice": "advanced",
+      "roll": 4,
+      "skill_gained": "Engineering",
+      "result_type": "skill_gain",
+      "skill_eligibilities_consumed": 1,
+      "skill_eligibilities_remaining": 0
+    }
+  ],
+  "skill_eligibility": 0,
+  "seed": 50559,
+  "career": "Navy"
+}

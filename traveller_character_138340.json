@@ -1,0 +1,173 @@
+{
+  "name": "Seren Meteor",
+  "age": 22,
+  "terms_served": 1,
+  "characteristics": {
+    "strength": 5,
+    "dexterity": 8,
+    "endurance": 9,
+    "intelligence": 5,
+    "education": 12,
+    "social": 5
+  },
+  "skills": {
+    "Gun Combat": 1,
+    "Medical": 1,
+    "Tactics": 1
+  },
+  "career_history": [
+    {
+      "event_type": "enlistment_attempt",
+      "service": "Army",
+      "roll": 8,
+      "modifier": 3,
+      "modifier_details": [
+        "Dexterity 8\u22656 (+1)",
+        "Endurance 9\u22655 (+2)"
+      ],
+      "target": 5,
+      "total": 11,
+      "success": true,
+      "outcome": "enlisted",
+      "assigned_service": "Army"
+    },
+    {
+      "event_type": "survival_check",
+      "career": "Army",
+      "roll": 10,
+      "modifier": 2,
+      "modifier_details": [
+        "Education 12\u22656 (+2)"
+      ],
+      "target": 5,
+      "total": 12,
+      "success": true,
+      "outcome": "survived"
+    },
+    {
+      "event_type": "commission_check",
+      "career": "Army",
+      "applicable": true,
+      "target": 5,
+      "modifier": 1,
+      "modifier_details": [
+        "Endurance 9\u22657 (+1)"
+      ],
+      "roll": 11,
+      "total": 12,
+      "success": true,
+      "outcome": "commissioned as officer"
+    },
+    {
+      "event_type": "promotion_check",
+      "career": "Army",
+      "current_rank": 1,
+      "applicable": true,
+      "target": 6,
+      "modifier": 1,
+      "modifier_details": [
+        "Education 12\u22657 (+1)"
+      ],
+      "roll": 4,
+      "total": 5,
+      "success": false,
+      "outcome": "not promoted"
+    },
+    {
+      "event_type": "skill_resolution",
+      "career": "Army",
+      "available_tables": {
+        "personal": true,
+        "service": true,
+        "advanced": true,
+        "education": true
+      },
+      "table_choice_method": "random",
+      "table_choice": "service",
+      "roll": 3,
+      "skill_gained": "Gun Combat",
+      "result_type": "skill_gain"
+    },
+    {
+      "event_type": "skill_resolution",
+      "career": "Army",
+      "available_tables": {
+        "personal": true,
+        "service": true,
+        "advanced": true,
+        "education": true
+      },
+      "table_choice_method": "random",
+      "table_choice": "education",
+      "roll": 1,
+      "skill_gained": "Medical",
+      "result_type": "skill_gain"
+    },
+    {
+      "event_type": "skill_resolution",
+      "career": "Army",
+      "available_tables": {
+        "personal": true,
+        "service": true,
+        "advanced": true,
+        "education": true
+      },
+      "table_choice_method": "random",
+      "table_choice": "education",
+      "roll": 2,
+      "skill_gained": "Tactics",
+      "result_type": "skill_gain"
+    },
+    {
+      "event_type": "reenlistment_attempt",
+      "career": "Army",
+      "age": 22,
+      "preference": "reenlist",
+      "roll": 6,
+      "target": 7,
+      "outcome": "discharged",
+      "status_text": "military discharge",
+      "continue_career": false
+    }
+  ],
+  "seed": 826668,
+  "career": "Army",
+  "terms": [
+    {
+      "term_number": 1,
+      "survival": "survived",
+      "commission": true,
+      "skills_gained": [
+        {
+          "table": "service",
+          "result": "Gun Combat",
+          "type": "skill_gain",
+          "skill": "Gun Combat",
+          "level": 1
+        },
+        {
+          "table": "education",
+          "result": "Medical",
+          "type": "skill_gain",
+          "skill": "Medical",
+          "level": 1
+        },
+        {
+          "table": "education",
+          "result": "Tactics",
+          "type": "skill_gain",
+          "skill": "Tactics",
+          "level": 1
+        }
+      ],
+      "reenlistment": {
+        "preference": "reenlist",
+        "roll": 6,
+        "target": 7,
+        "outcome": "discharged"
+      }
+    }
+  ],
+  "commissioned": true,
+  "rank": 1
+}
