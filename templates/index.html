@@ -4,523 +4,909 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classic Traveller Character Generator</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f5f5f5;
         }
-        .container {
-            background-color: white;
-            padding: 30px;
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
+            margin-bottom: 20px;
             text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .button {
-            background-color: #007bff;
+        
+        .header h1 {
+            margin: 0;
+            color: #1e3c72;
+            font-size: 2.5em;
+        }
+        
+        .nav-buttons {
+            margin-top: 15px;
+        }
+        
+        .btn {
+            background: #2a5298;
             color: white;
             padding: 12px 24px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 16px;
-            margin: 5px;
+            margin: 0 10px;
+            transition: all 0.3s;
         }
-        .button:hover {
-            background-color: #0056b3;
+        
+        .btn:hover {
+            background: #1e3c72;
+            transform: translateY(-2px);
         }
-        .button:disabled {
-            background-color: #6c757d;
+        
+        .btn:disabled {
+            background: #ccc;
             cursor: not-allowed;
+            transform: none;
         }
-        .character-info {
-            background-color: #f8f9fa;
+        
+        .btn.secondary {
+            background: #6c757d;
+        }
+        
+        .btn.secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn.danger {
+            background: #dc3545;
+        }
+        
+        .btn.danger:hover {
+            background: #c82333;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
             padding: 20px;
-            border-radius: 5px;
-            margin: 20px 0;
-            display: none;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .characteristics-buttons {
+        
+        .card h2 {
+            margin-top: 0;
+            color: #1e3c72;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .character-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+        
+        .character-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .character-name {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #1e3c72;
+            margin-bottom: 10px;
+        }
+        
+        .character-info {
+            margin-bottom: 15px;
+        }
+        
+        .character-info span {
+            display: inline-block;
+            margin-right: 15px;
+            color: #666;
+        }
+        
+        .character-info .upp {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #1e3c72;
+            font-size: 1.1em;
+        }
+        
+        .character-info .skills-display {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .characteristics {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
-            margin: 20px 0;
+            margin-bottom: 20px;
         }
-        .characteristic-display {
-            background-color: #e9ecef;
+        
+        .characteristic {
+            background: #f8f9fa;
             padding: 10px;
             border-radius: 5px;
-            margin: 5px 0;
-        }
-        .career-display {
-            background-color: #d4edda;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
-            border: 1px solid #c3e6cb;
-        }
-        .error {
-            color: red;
-            margin: 10px 0;
-        }
-        .success {
-            color: green;
-            margin: 10px 0;
-        }
-        .skill-eligibility-counter {
-            background-color: #fff3cd;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            border: 1px solid #ffeaa7;
             text-align: center;
+        }
+        
+        .characteristic strong {
+            display: block;
+            color: #1e3c72;
+            font-size: 1.2em;
+        }
+        
+        .skills {
+            margin-top: 15px;
+        }
+        
+        .skill-item {
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin: 5px 5px 5px 0;
+            display: inline-block;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #1e3c72;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #2a5298;
+        }
+        
+        select.form-control {
+            cursor: pointer;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
             font-size: 18px;
+            color: #666;
         }
-        .skills-buttons {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin: 20px 0;
-        }
-        #skills-list {
-            background-color: #f8f9fa;
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
             padding: 15px;
             border-radius: 5px;
-            margin: 10px 0;
-            min-height: 50px;
+            margin-bottom: 20px;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .career-history {
+            margin-top: 20px;
+        }
+        
+        .career-event {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border-left: 4px solid #2a5298;
+        }
+        
+        .career-event strong {
+            color: #1e3c72;
+        }
+        
+        .generation-controls {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .generation-controls h3 {
+            margin-top: 0;
+            color: #1e3c72;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .characteristics {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .nav-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .btn {
+                margin: 0;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Classic Traveller Character Generator</h1>
-        
-        <div id="app">
-            <p>Welcome to the Classic Traveller Character Generator!</p>
+    <div id="app">
+        <div class="container">
+            <div class="header">
+                <h1>⭐ Classic Traveller Character Generator</h1>
+                <div class="nav-buttons">
+                    <button class="btn" @click="showPage('home')">Home</button>
+                    <button class="btn" @click="showPage('characters')">Characters</button>
+                    <button class="btn" @click="showPage('new-character')">New Character</button>
+                </div>
+            </div>
             
-            <button class="button" onclick="createCharacter()">Create Character</button>
+            <!-- Home Page -->
+            <div v-if="currentPage === 'home'" class="card">
+                <h2>Welcome to the Classic Traveller Character Generator</h2>
+                <p>Generate characters for the Classic Traveller roleplaying game using the original rules and mechanics.</p>
+                <p>Features:</p>
+                <ul>
+                    <li>Generate characteristics using 2D6 rolls</li>
+                    <li>Enlist in various services (Navy, Marines, Army, Scouts, Merchants, Others)</li>
+                    <li>Complete career progression with survival, commission, and promotion checks</li>
+                    <li>Skill acquisition through career service</li>
+                    <li>Reenlistment options to continue careers</li>
+                    <li>Complete character record tracking</li>
+                </ul>
+                <div class="button-group">
+                    <button class="btn" @click="showPage('characters')">View Characters</button>
+                    <button class="btn" @click="showPage('new-character')">Create New Character</button>
+                </div>
+            </div>
             
-            <div id="character-info" class="character-info">
-                <h3>Character Created!</h3>
-                <p><strong>Name:</strong> <span id="char-name"></span></p>
-                <p><strong>Age:</strong> <span id="char-age"></span></p>
-                <p><strong>Terms Served:</strong> <span id="char-terms"></span></p>
-                <p><strong>Seed:</strong> <span id="char-seed"></span></p>
-                <p><strong>Character ID:</strong> <span id="char-id"></span></p>
-                
-                <h4>Generate Characteristics (click in any order):</h4>
-                <div class="characteristics-buttons">
-                    <button class="button" id="btn-strength" onclick="generateCharacteristic('strength')">Strength</button>
-                    <button class="button" id="btn-dexterity" onclick="generateCharacteristic('dexterity')">Dexterity</button>
-                    <button class="button" id="btn-endurance" onclick="generateCharacteristic('endurance')">Endurance</button>
-                    <button class="button" id="btn-intelligence" onclick="generateCharacteristic('intelligence')">Intelligence</button>
-                    <button class="button" id="btn-education" onclick="generateCharacteristic('education')">Education</button>
-                    <button class="button" id="btn-social" onclick="generateCharacteristic('social')">Social</button>
+            <!-- Characters List Page -->
+            <div v-if="currentPage === 'characters'">
+                <div class="card">
+                    <h2>Character List</h2>
+                    <button class="btn" @click="loadCharacters">Refresh List</button>
+                    <button class="btn" @click="showPage('new-character')">Create New Character</button>
                 </div>
                 
-                <div id="service-selection" style="display: none;">
-                    <h4>Select Service:</h4>
-                    <div class="characteristics-buttons">
-                        <button class="button" onclick="attemptEnlistment('Navy')">Navy</button>
-                        <button class="button" onclick="attemptEnlistment('Marines')">Marines</button>
-                        <button class="button" onclick="attemptEnlistment('Army')">Army</button>
-                        <button class="button" onclick="attemptEnlistment('Scouts')">Scouts</button>
-                        <button class="button" onclick="attemptEnlistment('Merchants')">Merchants</button>
-                        <button class="button" onclick="attemptEnlistment('Others')">Others</button>
-                    </div>
+                <div v-if="loading" class="loading">Loading characters...</div>
+                <div v-if="error" class="error">[[ error ]]</div>
+                
+                <div v-if="!loading && characters.length === 0" class="card">
+                    <p>No characters found. Create your first character!</p>
+                    <button class="btn" @click="showPage('new-character')">Create Character</button>
                 </div>
                 
-                <div id="career-info" style="display: none;">
-                    <h4>Career Result:</h4>
-                    <div id="career-display"></div>
-                </div>
-                
-                <div id="commission-section" style="display: none;">
-                    <h4>Commission:</h4>
-                    <button class="button" id="commission-btn" onclick="attemptCommission()">Commission</button>
-                    <div id="commission-display"></div>
-                </div>
-                
-                <div id="promotion-section" style="display: none;">
-                    <h4>Promotion:</h4>
-                    <button class="button" id="promotion-btn" onclick="attemptPromotion()">Promotion</button>
-                    <div id="promotion-display"></div>
-                </div>
-                
-                <div id="skills-section" style="display: none;">
-                    <h4>Skills:</h4>
-                    <div class="skill-eligibility-counter">
-                        <strong>Skill Eligibility: <span id="skill-eligibility-count">0</span></strong>
-                    </div>
-                    <div class="skills-buttons">
-                        <button class="button" id="btn-personal" onclick="resolveSkill('personal')">Personal</button>
-                        <button class="button" id="btn-service" onclick="resolveSkill('service')">Service</button>
-                        <button class="button" id="btn-advanced" onclick="resolveSkill('advanced')">Advanced</button>
-                        <button class="button" id="btn-education" onclick="resolveSkill('education')" style="display: none;">Education</button>
-                    </div>
-                    <div id="skills-display">
-                        <h5>Skills Gained:</h5>
-                        <div id="skills-list">No skills gained yet</div>
+                <div v-if="!loading && characters.length > 0" class="character-grid">
+                    <div v-for="character in characters" :key="character.character_id" class="character-card">
+                        <div class="character-name">[[ character.name ]]</div>
+                        <div class="character-info">
+                            <span><strong>Age:</strong> [[ character.age ]]</span>
+                            <span><strong>Terms:</strong> [[ character.terms_served ]]</span>
+                            <span><strong>Career:</strong> [[ character.career || 'None' ]]</span>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn" @click="viewCharacter(character.character_id)">View</button>
+                            <button class="btn danger" @click="deleteCharacter(character.character_id)">Delete</button>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <div id="message"></div>
+            <!-- New Character Page -->
+            <div v-if="currentPage === 'new-character'">
+                <div class="card">
+                    <h2>Create New Character</h2>
+                    <div class="form-group">
+                        <label for="seed">Seed (optional - for reproducible results):</label>
+                        <input type="number" id="seed" v-model.number="newCharacter.seed" class="form-control" placeholder="Leave empty for random">
+                    </div>
+                    <button class="btn" @click="initializeCharacter" :disabled="loading">
+                        [[ loading ? 'Creating...' : 'Initialize Character' ]]
+                    </button>
+                </div>
+                
+                <div v-if="error" class="error">[[ error ]]</div>
+                <div v-if="success" class="success">[[ success ]]</div>
+            </div>
+            
+            <!-- Character Detail Page -->
+            <div v-if="currentPage === 'character-detail' && selectedCharacter">
+                <div class="card">
+                    <h2>[[ selectedCharacter.name ]]</h2>
+                    <div class="character-info">
+                        <span><strong>Age:</strong> [[ selectedCharacter.age ]]</span>
+                        <span><strong>Terms:</strong> [[ selectedCharacter.terms_served ]]</span>
+                        <span><strong>Career:</strong> [[ selectedCharacter.career || 'None' ]]</span>
+                        <span v-if="selectedCharacter.rank !== undefined"><strong>Rank:</strong> [[ selectedCharacter.rank ]]</span>
+                        <span v-if="hasAllCharacteristics()" class="upp"><strong>UPP:</strong> [[ generateUPP() ]]</span>
+                        <span><strong>Seed:</strong> [[ selectedCharacter.seed ]]</span>
+                    </div>
+                    
+                    <div v-if="hasSkills()" class="character-info">
+                        <div class="skills-display">
+                            <strong>Skills:</strong> [[ formatSkillsForDisplay() ]]
+                        </div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button class="btn" @click="showPage('characters')">Back to List</button>
+                        <button class="btn danger" @click="deleteCharacter(selectedCharacter.character_id || currentCharacterId)">Delete Character</button>
+                    </div>
+                </div>
+                
+                <!-- Characteristics Generation -->
+                <div class="card" v-if="!hasAllCharacteristics()">
+                    <h2>Characteristics</h2>
+                    <div class="characteristics">
+                        <div v-for="(value, name) in selectedCharacter.characteristics" :key="name" class="characteristic">
+                            <strong>[[ value ]]</strong>
+                            <span>[[ name.charAt(0).toUpperCase() + name.slice(1) ]]</span>
+                        </div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button v-for="charName in missingCharacteristics()" 
+                                :key="charName" 
+                                class="btn" 
+                                @click="generateCharacteristic(charName)"
+                                :disabled="loading">
+                            [[ loading ? 'Rolling...' : `Roll ${charName.charAt(0).toUpperCase() + charName.slice(1)}` ]]
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Character Generation Controls -->
+                <div class="generation-controls" v-if="hasAllCharacteristics()">
+                    <h3>Character Generation</h3>
+                    
+                    <!-- Enlistment -->
+                    <div v-if="!selectedCharacter.career">
+                        <h4>Enlistment</h4>
+                        <div class="form-group">
+                            <label for="service">Choose Service:</label>
+                            <select id="service" v-model="selectedService" class="form-control">
+                                <option value="">Select a service</option>
+                                <option v-for="service in availableServices" :key="service" :value="service">[[ service ]]</option>
+                            </select>
+                        </div>
+                        <button class="btn" @click="attemptEnlistment" :disabled="!selectedService || loading">
+                            [[ loading ? 'Enlisting...' : 'Attempt Enlistment' ]]
+                        </button>
+                    </div>
+                    
+                    <!-- Career Progression -->
+                    <div v-if="selectedCharacter.career">
+                        <h4>Career Progression</h4>
+                        <div class="button-group">
+                            <button class="btn" @click="checkCommission" :disabled="loading" v-if="canAttemptCommission()">
+                                [[ loading ? 'Checking...' : 'Commission' ]]
+                            </button>
+                            <button class="btn" @click="checkPromotion" :disabled="loading" v-if="canAttemptPromotion()">
+                                [[ loading ? 'Checking...' : 'Promotion' ]]
+                            </button>
+                        </div>
+                        
+                        <!-- Skill Resolution -->
+                        <div v-if="selectedCharacter.skill_eligibility > 0">
+                            <h5>Skill Resolution ([[ selectedCharacter.skill_eligibility ]] available)</h5>
+                            <div class="form-group">
+                                <label for="skillTable">Choose Skill Table:</label>
+                                <select id="skillTable" v-model="selectedSkillTable" class="form-control">
+                                    <option value="">Select a skill table</option>
+                                    <option value="personal" v-if="getAvailableTables().personal">Personal</option>
+                                    <option value="service" v-if="getAvailableTables().service">Service</option>
+                                    <option value="advanced" v-if="getAvailableTables().advanced">Advanced</option>
+                                    <option value="education" v-if="getAvailableTables().education">Education</option>
+                                </select>
+                            </div>
+                            <button class="btn" @click="resolveSkill" :disabled="loading || !selectedSkillTable">
+                                [[ loading ? 'Resolving...' : 'Resolve Skill' ]]
+                            </button>
+                        </div>
+                        
+                        <div class="button-group" style="margin-top: 15px;">
+                            <button class="btn" @click="attemptReenlistment" :disabled="loading">
+                                [[ loading ? 'Checking...' : 'Attempt Reenlistment' ]]
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Career History -->
+                <div class="card" v-if="selectedCharacter.career_history && selectedCharacter.career_history.length > 0">
+                    <h2>Career History</h2>
+                    <div class="career-history">
+                        <div v-for="(event, index) in selectedCharacter.career_history" :key="index" class="career-event">
+                            <strong>[[ event.event_type.replace('_', ' ').toUpperCase() ]]</strong>
+                            <div v-if="event.outcome">[[ event.outcome ]]</div>
+                            <div v-if="event.skill_gained">Skill gained: [[ event.skill_gained ]]</div>
+                            <div v-if="event.roll">Roll: [[ event.roll ]] (Target: [[ event.target ]])</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div v-if="error" class="error">[[ error ]]</div>
+                <div v-if="success" class="success">[[ success ]]</div>
+            </div>
         </div>
     </div>
 
     <script>
-        let currentCharacterId = null;
-        let generatedCharacteristics = {};
-        let characteristicsComplete = false;
-
-        async function createCharacter() {
-            try {
-                const response = await fetch('/api/character/initialize', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({})
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    currentCharacterId = data.character_id;
-                    generatedCharacteristics = {};
-                    characteristicsComplete = false;
-                    document.getElementById('char-name').textContent = data.name;
-                    document.getElementById('char-age').textContent = data.age;
-                    document.getElementById('char-terms').textContent = data.terms_served;
-                    document.getElementById('char-seed').textContent = data.seed;
-                    document.getElementById('char-id').textContent = data.character_id;
-                    document.getElementById('character-info').style.display = 'block';
-                    
-                    // Reset characteristic buttons and hide service selection
-                    resetCharacteristicButtons();
-                    document.getElementById('service-selection').style.display = 'none';
-                    document.getElementById('career-info').style.display = 'none';
-                    document.getElementById('commission-section').style.display = 'none'; // Hide commission section
-                    document.getElementById('promotion-section').style.display = 'none'; // Hide promotion section
-                    document.getElementById('skills-section').style.display = 'none'; // Hide skills section
-                    
-                    // Reset commission button
-                    document.getElementById('commission-btn').disabled = false;
-                    // Reset promotion button
-                    document.getElementById('promotion-btn').disabled = false;
-                    
-                    showMessage('Character created successfully!', 'success');
-                } else {
-                    showMessage('Error: ' + data.error, 'error');
-                }
-            } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
-            }
-        }
-
-        async function generateCharacteristic(characteristicName) {
-            if (!currentCharacterId) {
-                showMessage('Please create a character first!', 'error');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/character/${currentCharacterId}/characteristic/${characteristicName}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Store the generated characteristic
-                    generatedCharacteristics[data.characteristic] = data.value;
-                    
-                    // Disable the button for this characteristic
-                    const button = document.getElementById(`btn-${characteristicName}`);
-                    button.disabled = true;
-                    button.textContent = `${characteristicName.charAt(0).toUpperCase() + characteristicName.slice(1)}: ${data.value}`;
-                    
-                    // Check if all characteristics are generated
-                    if (Object.keys(generatedCharacteristics).length === 6) {
-                        characteristicsComplete = true;
-                        document.getElementById('service-selection').style.display = 'block';
-                        showMessage('All characteristics generated! Now select a service.', 'success');
-                    } else {
-                        showMessage(`${characteristicName.charAt(0).toUpperCase() + characteristicName.slice(1)} generated: ${data.value}`, 'success');
-                    }
-                } else {
-                    showMessage('Error: ' + data.error, 'error');
-                }
-            } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
-            }
-        }
-
-        async function attemptEnlistment(serviceName) {
-            if (!currentCharacterId) {
-                showMessage('Please create a character first!', 'error');
-                return;
-            }
-
-            if (!characteristicsComplete) {
-                showMessage('Please generate all characteristics first!', 'error');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/character/${currentCharacterId}/enlist`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ service: serviceName })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Hide service selection buttons
-                    document.getElementById('service-selection').style.display = 'none';
-                    
-                    // Show career result
-                    document.getElementById('career-info').style.display = 'block';
-                    
-                    const careerDisplay = document.getElementById('career-display');
-                    careerDisplay.innerHTML = `
-                        <div class="career-display">
-                            <p><strong>Service Attempted:</strong> ${data.service_attempted}</p>
-                            <p><strong>Result:</strong> ${data.enlisted ? 'Enlisted' : 'Drafted'}</p>
-                            <p><strong>Assigned to:</strong> ${data.assigned_service}</p>
-                            <p><strong>Roll:</strong> ${data.roll} (needed ${data.target})</p>
-                            <p><strong>Modifiers:</strong> ${data.modifiers}</p>
-                        </div>
-                    `;
-                    
-                    // Show commission section
-                    document.getElementById('commission-section').style.display = 'block';
-                    
-                    showMessage(`Career resolved: ${data.assigned_service}`, 'success');
-                } else {
-                    showMessage('Error: ' + data.error, 'error');
-                }
-            } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
-            }
-        }
-
-        async function attemptCommission() {
-            if (!currentCharacterId) {
-                showMessage('Please create a character first!', 'error');
-                return;
-            }
-
-            if (!characteristicsComplete) {
-                showMessage('Please generate all characteristics first!', 'error');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/character/${currentCharacterId}/commission`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Disable the commission button
-                    document.getElementById('commission-btn').disabled = true;
-                    
-                    document.getElementById('commission-display').innerHTML = `
-                        <div class="career-display">
-                            <p><strong>Commission Attempted:</strong> ${data.applicable ? 'Applicable' : 'Not Applicable'}</p>
-                            <p><strong>Result:</strong> ${data.commissioned ? 'Commissioned' : 'Not Commissioned'}</p>
-                            <p><strong>Roll:</strong> ${data.roll} (needed ${data.target})</p>
-                            <p><strong>Modifiers:</strong> ${data.modifiers}</p>
-                            <p><strong>Rank:</strong> ${data.rank ? 'Rank ' + data.rank : 'N/A'}</p>
-                            <p><strong>Reason:</strong> ${data.reason}</p>
-                        </div>
-                    `;
-                    
-                    // Show promotion section
-                    document.getElementById('promotion-section').style.display = 'block';
-                    
-                    showMessage(`Commission resolved: ${data.commissioned ? 'Commissioned' : 'Not Commissioned'}`, 'success');
-                } else {
-                    showMessage('Error: ' + data.error, 'error');
-                }
-            } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
-            }
-        }
-
-        async function attemptPromotion() {
-            if (!currentCharacterId) {
-                showMessage('Please create a character first!', 'error');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/character/${currentCharacterId}/promotion`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Disable the promotion button
-                    document.getElementById('promotion-btn').disabled = true;
-                    
-                    document.getElementById('promotion-display').innerHTML = `
-                        <div class="career-display">
-                            <p><strong>Promotion Attempted:</strong> ${data.applicable ? 'Applicable' : 'Not Applicable'}</p>
-                            <p><strong>Result:</strong> ${data.promoted ? 'Promoted' : 'Not Promoted'}</p>
-                            <p><strong>Roll:</strong> ${data.roll} (needed ${data.target})</p>
-                            <p><strong>Modifiers:</strong> ${data.modifiers}</p>
-                            <p><strong>Current Rank:</strong> ${data.current_rank}</p>
-                            <p><strong>New Rank:</strong> ${data.new_rank ? data.new_rank : 'N/A'}</p>
-                            <p><strong>Reason:</strong> ${data.reason}</p>
-                        </div>
-                    `;
-                    showMessage(`Promotion resolved: ${data.promoted ? 'Promoted' : 'Not Promoted'}`, 'success');
-                    
-                    // Show skills section after promotion (whether successful or not)
-                    document.getElementById('skills-section').style.display = 'block';
-                    checkEducationButton();
-                    await updateSkillEligibility();
-                    await updateSkillsDisplay();
-                } else {
-                    showMessage('Error: ' + data.error, 'error');
-                }
-            } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
-            }
-        }
-
-        function resetCharacteristicButtons() {
-            const characteristics = ['strength', 'dexterity', 'endurance', 'intelligence', 'education', 'social'];
-            characteristics.forEach(char => {
-                const button = document.getElementById(`btn-${char}`);
-                button.disabled = false;
-                button.textContent = char.charAt(0).toUpperCase() + char.slice(1);
-            });
-        }
-
-        async function updateSkillEligibility() {
-            if (!currentCharacterId) return;
+        const { createApp } = Vue;
+        
+        createApp({
+            delimiters: ['[[', ']]'],
             
-            try {
-                const response = await fetch(`/api/character/${currentCharacterId}/skill-eligibility`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    const count = data.skill_eligibility;
-                    document.getElementById('skill-eligibility-count').textContent = count;
+            data() {
+                return {
+                    currentPage: 'home',
+                    characters: [],
+                    selectedCharacter: null,
+                    currentCharacterId: null,
+                    availableServices: ['Navy', 'Marines', 'Army', 'Scouts', 'Merchants', 'Others'],
+                    selectedService: '',
+                    selectedSkillTable: '',
+                    loading: false,
+                    error: '',
+                    success: '',
+                    newCharacter: {
+                        seed: null
+                    },
+                    commissionAttemptedThisTerm: false,
+                    promotionAttemptedThisTerm: false,
+                    currentTermNumber: 0
+                }
+            },
+            
+            mounted() {
+                // Check URL for routing
+                const path = window.location.pathname;
+                if (path === '/characters') {
+                    this.showPage('characters');
+                } else if (path === '/characters/new') {
+                    this.showPage('new-character');
+                } else if (path.startsWith('/characters/')) {
+                    const characterId = path.split('/')[2];
+                    this.viewCharacter(characterId);
+                }
+            },
+            
+            methods: {
+                showPage(page) {
+                    this.currentPage = page;
+                    this.error = '';
+                    this.success = '';
                     
-                    // Update button states
-                    const skillButtons = ['btn-personal', 'btn-service', 'btn-advanced', 'btn-education'];
-                    skillButtons.forEach(buttonId => {
-                        const button = document.getElementById(buttonId);
-                        if (button.style.display !== 'none') {
-                            button.disabled = count === 0;
+                    // Update URL
+                    const urls = {
+                        'home': '/',
+                        'characters': '/characters',
+                        'new-character': '/characters/new',
+                        'character-detail': `/characters/${this.currentCharacterId}`
+                    };
+                    
+                    if (urls[page]) {
+                        window.history.pushState(null, '', urls[page]);
+                    }
+                    
+                    if (page === 'characters') {
+                        this.loadCharacters();
+                    }
+                },
+                
+                async loadCharacters() {
+                    this.loading = true;
+                    this.error = '';
+                    
+                    try {
+                        const response = await axios.get('/api/characters');
+                        if (response.data.success) {
+                            this.characters = response.data.characters;
+                        } else {
+                            this.error = response.data.error || 'Failed to load characters';
                         }
-                    });
-                }
-            } catch (error) {
-                console.error('Error updating skill eligibility:', error);
-            }
-        }
-
-        async function resolveSkill(tableName) {
-            if (!currentCharacterId) {
-                showMessage('Please create a character first!', 'error');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/character/${currentCharacterId}/skill`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ table: tableName })
-                });
+                    } catch (error) {
+                        this.error = 'Failed to load characters: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
                 
-                const data = await response.json();
+                async initializeCharacter() {
+                    this.loading = true;
+                    this.error = '';
+                    this.success = '';
+                    
+                    try {
+                        const data = {};
+                        if (this.newCharacter.seed) {
+                            data.seed = this.newCharacter.seed;
+                        }
+                        
+                        const response = await axios.post('/api/character/initialize', data);
+                        if (response.data.success) {
+                            this.newCharacter.seed = null;
+                            
+                            // Navigate to character detail immediately
+                            this.viewCharacter(response.data.character_id);
+                        } else {
+                            this.error = response.data.error || 'Failed to create character';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to create character: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
                 
-                if (data.success) {
-                    // Update skill eligibility counter
-                    await updateSkillEligibility();
+                async viewCharacter(characterId) {
+                    this.loading = true;
+                    this.error = '';
+                    this.currentCharacterId = characterId;
                     
-                    // Update skills display
-                    await updateSkillsDisplay();
-                    
-                    showMessage(`Skill gained: ${data.skill_gained}`, 'success');
-                } else {
-                    showMessage('Error: ' + data.error, 'error');
-                }
-            } catch (error) {
-                showMessage('Error: ' + error.message, 'error');
-            }
-        }
-
-        async function updateSkillsDisplay() {
-            if (!currentCharacterId) return;
-            
-            try {
-                const response = await fetch(`/api/character/${currentCharacterId}`);
-                const data = await response.json();
+                    try {
+                        const response = await axios.get(`/api/character/${characterId}`);
+                        if (response.data.success) {
+                            this.selectedCharacter = response.data.character;
+                            this.updateTermTracking();
+                            this.showPage('character-detail');
+                        } else {
+                            this.error = response.data.error || 'Failed to load character';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to load character: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
                 
-                if (data.success && data.character.skills) {
-                    const skillsList = document.getElementById('skills-list');
-                    const skills = data.character.skills;
+                async deleteCharacter(characterId) {
+                    if (!confirm('Are you sure you want to delete this character?')) {
+                        return;
+                    }
                     
-                    if (Object.keys(skills).length > 0) {
-                        skillsList.innerHTML = Object.entries(skills)
-                            .map(([skill, level]) => `<div>${skill}: ${level}</div>`)
-                            .join('');
-                    } else {
-                        skillsList.innerHTML = '<div>No skills gained yet</div>';
+                    this.loading = true;
+                    this.error = '';
+                    
+                    try {
+                        const response = await axios.delete(`/api/character/${characterId}`);
+                        if (response.data.success) {
+                            this.success = 'Character deleted successfully!';
+                            
+                            // If we're on the character detail page, go back to characters list
+                            if (this.currentPage === 'character-detail') {
+                                setTimeout(() => {
+                                    this.showPage('characters');
+                                }, 1000);
+                            } else {
+                                // Refresh the characters list
+                                this.loadCharacters();
+                            }
+                        } else {
+                            this.error = response.data.error || 'Failed to delete character';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to delete character: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                hasAllCharacteristics() {
+                    if (!this.selectedCharacter || !this.selectedCharacter.characteristics) {
+                        return false;
+                    }
+                    const required = ['strength', 'dexterity', 'endurance', 'intelligence', 'education', 'social'];
+                    return required.every(char => this.selectedCharacter.characteristics.hasOwnProperty(char));
+                },
+                
+                missingCharacteristics() {
+                    if (!this.selectedCharacter || !this.selectedCharacter.characteristics) {
+                        return ['strength', 'dexterity', 'endurance', 'intelligence', 'education', 'social'];
+                    }
+                    const required = ['strength', 'dexterity', 'endurance', 'intelligence', 'education', 'social'];
+                    return required.filter(char => !this.selectedCharacter.characteristics.hasOwnProperty(char));
+                },
+                
+                generateUPP() {
+                    if (!this.hasAllCharacteristics()) {
+                        return '';
+                    }
+                    
+                    const chars = this.selectedCharacter.characteristics;
+                    const hexValues = [
+                        chars.strength,
+                        chars.dexterity,
+                        chars.endurance,
+                        chars.intelligence,
+                        chars.education,
+                        chars.social
+                    ].map(val => val > 9 ? String.fromCharCode(65 + val - 10) : val.toString());
+                    
+                    return hexValues.join('');
+                },
+                
+                hasSkills() {
+                    return this.selectedCharacter && 
+                           this.selectedCharacter.skills && 
+                           Object.keys(this.selectedCharacter.skills).length > 0;
+                },
+                
+                getAvailableTables() {
+                    if (!this.selectedCharacter || !this.selectedCharacter.career_history) {
+                        return { personal: false, service: false, advanced: false, education: false };
+                    }
+                    
+                    // Find the most recent skill resolution event to get available tables
+                    const skillEvents = this.selectedCharacter.career_history.filter(event => 
+                        event.event_type === 'skill_resolution' && event.available_tables
+                    );
+                    
+                    if (skillEvents.length > 0) {
+                        return skillEvents[skillEvents.length - 1].available_tables;
+                    }
+                    
+                    // Default fallback (shouldn't happen if character has career history)
+                    return { personal: true, service: true, advanced: true, education: false };
+                },
+                
+                formatSkillsForDisplay() {
+                    if (!this.hasSkills()) return '';
+                    
+                    return Object.entries(this.selectedCharacter.skills)
+                        .map(([skill, level]) => `${skill}-${level}`)
+                        .join(', ');
+                },
+                
+                updateTermTracking() {
+                    if (!this.selectedCharacter) return;
+                    
+                    // Reset tracking if we're in a new term
+                    if (this.currentTermNumber !== this.selectedCharacter.terms_served) {
+                        this.currentTermNumber = this.selectedCharacter.terms_served;
+                        this.commissionAttemptedThisTerm = false;
+                        this.promotionAttemptedThisTerm = false;
+                    }
+                    
+                    // Check if commission or promotion was attempted this term
+                    if (this.selectedCharacter.career_history) {
+                        const thisTermEvents = this.selectedCharacter.career_history.filter(event => 
+                            event.event_type === 'commission_check' || event.event_type === 'promotion_check'
+                        );
+                        
+                        if (thisTermEvents.some(event => event.event_type === 'commission_check')) {
+                            this.commissionAttemptedThisTerm = true;
+                        }
+                        if (thisTermEvents.some(event => event.event_type === 'promotion_check')) {
+                            this.promotionAttemptedThisTerm = true;
+                        }
+                    }
+                },
+                
+                canAttemptCommission() {
+                    return this.selectedCharacter && 
+                           this.selectedCharacter.career &&
+                           !this.selectedCharacter.commissioned &&
+                           !this.commissionAttemptedThisTerm;
+                },
+                
+                canAttemptPromotion() {
+                    return this.selectedCharacter && 
+                           this.selectedCharacter.career &&
+                           this.selectedCharacter.commissioned &&
+                           !this.promotionAttemptedThisTerm;
+                },
+                
+                async generateCharacteristic(characteristicName) {
+                    this.loading = true;
+                    this.error = '';
+                    
+                    try {
+                        const response = await axios.post(`/api/character/${this.currentCharacterId}/characteristic/${characteristicName}`);
+                        if (response.data.success) {
+                            // Reload character data
+                            await this.viewCharacter(this.currentCharacterId);
+                        } else {
+                            this.error = response.data.error || `Failed to generate ${characteristicName}`;
+                        }
+                    } catch (error) {
+                        this.error = `Failed to generate ${characteristicName}: ` + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async attemptEnlistment() {
+                    this.loading = true;
+                    this.error = '';
+                    this.success = '';
+                    
+                    try {
+                        const response = await axios.post(`/api/character/${this.currentCharacterId}/enlist`, {
+                            service: this.selectedService
+                        });
+                        
+                        if (response.data.success) {
+                            this.success = `${response.data.outcome}! Assigned to ${response.data.assigned_service}`;
+                            this.selectedService = '';
+                            // Reload character data
+                            await this.viewCharacter(this.currentCharacterId);
+                        } else {
+                            this.error = response.data.error || 'Enlistment failed';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to process enlistment: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async checkCommission() {
+                    this.loading = true;
+                    this.error = '';
+                    this.success = '';
+                    
+                    try {
+                        const response = await axios.post(`/api/character/${this.currentCharacterId}/commission`);
+                        
+                        if (response.data.success) {
+                            this.commissionAttemptedThisTerm = true;
+                            
+                            if (response.data.commissioned) {
+                                this.success = 'Successfully commissioned as an officer!';
+                            } else {
+                                this.success = 'Commission attempt failed, remaining enlisted.';
+                            }
+                            // Reload character data
+                            await this.viewCharacter(this.currentCharacterId);
+                        } else {
+                            this.error = response.data.error || 'Commission check failed';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to process commission: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async checkPromotion() {
+                    this.loading = true;
+                    this.error = '';
+                    this.success = '';
+                    
+                    try {
+                        const response = await axios.post(`/api/character/${this.currentCharacterId}/promotion`);
+                        
+                        if (response.data.success) {
+                            this.promotionAttemptedThisTerm = true;
+                            
+                            if (response.data.promoted) {
+                                this.success = `Successfully promoted to rank ${response.data.new_rank}!`;
+                            } else {
+                                this.success = 'Promotion attempt failed, rank unchanged.';
+                            }
+                            // Reload character data
+                            await this.viewCharacter(this.currentCharacterId);
+                        } else {
+                            this.error = response.data.error || 'Promotion check failed';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to process promotion: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async resolveSkill() {
+                    this.loading = true;
+                    this.error = '';
+                    this.success = '';
+                    
+                    try {
+                        const response = await axios.post(`/api/character/${this.currentCharacterId}/skill`, {
+                            table_choice: this.selectedSkillTable
+                        });
+                        
+                        if (response.data.success) {
+                            this.success = `Skill gained: ${response.data.skill_gained}`;
+                            this.selectedSkillTable = '';
+                            // Reload character data
+                            await this.viewCharacter(this.currentCharacterId);
+                        } else {
+                            this.error = response.data.error || 'Skill resolution failed';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to resolve skill: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async attemptReenlistment() {
+                    this.loading = true;
+                    this.error = '';
+                    this.success = '';
+                    
+                    try {
+                        const response = await axios.post(`/api/character/${this.currentCharacterId}/reenlist`, {
+                            preference: 'reenlist'
+                        });
+                        
+                        if (response.data.success) {
+                            this.success = `Reenlistment result: ${response.data.outcome}`;
+                            
+                            // Reset term tracking for new term
+                            this.commissionAttemptedThisTerm = false;
+                            this.promotionAttemptedThisTerm = false;
+                            
+                            // Reload character data
+                            await this.viewCharacter(this.currentCharacterId);
+                        } else {
+                            this.error = response.data.error || 'Reenlistment failed';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to process reenlistment: ' + error.message;
+                    } finally {
+                        this.loading = false;
                     }
                 }
-            } catch (error) {
-                console.error('Error updating skills display:', error);
             }
-        }
-
-        function checkEducationButton() {
-            // Show education button if character has education 8+
-            if (generatedCharacteristics.education && generatedCharacteristics.education >= 8) {
-                document.getElementById('btn-education').style.display = 'block';
-            } else {
-                document.getElementById('btn-education').style.display = 'none';
-            }
-        }
-
-        function showMessage(message, type) {
-            const messageDiv = document.getElementById('message');
-            messageDiv.textContent = message;
-            messageDiv.className = type;
-            setTimeout(() => {
-                messageDiv.textContent = '';
-                messageDiv.className = '';
-            }, 5000);
-        }
+        }).mount('#app');
     </script>
 </body>
-</html> 
+</html>

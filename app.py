@@ -37,8 +37,14 @@ CORS(app)  # Enable CORS for Vue.js frontend
 characters_db: Dict[str, Dict[str, Any]] = {}
 
 def generate_character_id() -> str:
-    """Generate a unique character ID"""
-    return f"char_{random.randint(100000, 999999)}"
+    """Generate a unique character ID with collision detection"""
+    max_attempts = 100
+    for _ in range(max_attempts):
+        char_id = f"char_{random.randint(100000, 999999)}"
+        # Check both in-memory database and JSON files for collisions
+        if char_id not in characters_db and not os.path.exists(get_character_filename(char_id)):
+            return char_id
+    raise Exception("Unable to generate unique character ID after maximum attempts")
 
 def get_character_filename(character_id: str) -> str:
     """Get the JSON filename for a character"""
@@ -307,6 +313,8 @@ def enlist_character(character_id: str):
         character = attempt_enlistment(random_generator, character, service)
         
         # Parse the enlistment result from career_history (last event)
+        if not character.get("career_history"):
+            raise ValueError("No career history available after enlistment")
         enlistment_result = character["career_history"][-1]
         
         # Update character in storage
@@ -367,6 +375,8 @@ def commission_character(character_id: str):
         character = check_commission(random_generator, character)
         
         # Parse the commission result from career_history (last event)
+        if not character.get("career_history"):
+            raise ValueError("No career history available after commission check")
         commission_result = character["career_history"][-1]
         
         # Update character in storage
@@ -429,6 +439,8 @@ def promote_character(character_id: str):
         character = check_promotion(random_generator, character)
         
         # Parse the promotion result from career_history (last event)
+        if not character.get("career_history"):
+            raise ValueError("No career history available after promotion check")
         promotion_result = character["career_history"][-1]
         
         # Update character in storage
@@ -519,7 +531,7 @@ def resolve_character_skill(character_id: str):
     """
     Resolve a skill for a character
     
-    Request body:
+    Expected JSON body:
     {
         "table": "personal" | "service" | "advanced" | "education"
     }
@@ -533,7 +545,7 @@ def resolve_character_skill(character_id: str):
     """
     try:
         data = request.get_json() or {}
-        table_choice = data.get('table')
+        table_choice = data.get('table_choice')
         
         if not table_choice:
             return jsonify({
@@ -550,6 +562,8 @@ def resolve_character_skill(character_id: str):
         character = resolve_skill(random_generator, character, table_choice)
         
         # Parse the skill result from career_history (last event)
+        if not character.get("career_history"):
+            raise ValueError("No career history available after skill resolution")
         skill_result = character["career_history"][-1]
         
         # Update character in storage
@@ -561,6 +575,77 @@ def resolve_character_skill(character_id: str):
             "skill_gained": skill_result["skill_gained"],
             "skill_type": skill_result["result_type"],
             "table_used": table_choice
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 404
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/character/<character_id>/reenlist', methods=['POST'])
+def reenlist_character(character_id: str):
+    """
+    Attempt re-enlistment for a character
+    
+    Expected JSON body:
+    {
+        "preference": "reenlist" | "discharge" | "retire"
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "outcome": "reenlisted" | "discharged" | "retired" | "retained",
+        "status_text": "reenlisted" | "military discharge" | "retired" | "retained (mandatory)",
+        "continue_career": true | false,
+        "roll": 7,
+        "target": 6,
+        "preference": "reenlist",
+        "skill_eligibilities_granted": 1
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        preference = data.get('preference', 'reenlist')
+        
+        if preference not in ['reenlist', 'discharge', 'retire']:
+            return jsonify({
+                "success": False,
+                "error": "Invalid preference. Must be 'reenlist', 'discharge', or 'retire'"
+            }), 400
+        
+        character = get_character(character_id)
+        
+        # Create random generator with character's seed
+        random_generator = set_seed(character["seed"])
+        
+        # Call the stateless endpoint
+        character = attempt_reenlistment(random_generator, character, preference)
+        
+        # Parse the reenlistment result from career_history (last event)
+        if not character.get("career_history"):
+            raise ValueError("No career history available after reenlistment")
+        reenlistment_result = character["career_history"][-1]
+        
+        # Update character in storage
+        update_character(character_id, character)
+        
+        # Return UI-friendly data
+        return jsonify({
+            "success": True,
+            "outcome": reenlistment_result["outcome"],
+            "status_text": reenlistment_result["status_text"],
+            "continue_career": reenlistment_result["continue_career"],
+            "roll": reenlistment_result["roll"],
+            "target": reenlistment_result["target"],
+            "preference": reenlistment_result["preference"],
+            "skill_eligibilities_granted": reenlistment_result.get("skill_eligibilities_granted", 0)
         })
         
     except ValueError as e:
@@ -725,5 +810,8 @@ if __name__ == '__main__':
     # Create templates directory if it doesn't exist
     os.makedirs('templates', exist_ok=True)
     
+    # Use environment variables for production safety
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    
     # Run the Flask app
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000) 
