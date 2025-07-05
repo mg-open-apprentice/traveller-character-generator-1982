@@ -42,6 +42,39 @@ def set_seed(seed: int = 77) -> random.Random:
     """
     return random.Random(seed)
 
+def get_random_generator(character_record: dict[str, Any]) -> random.Random:
+    """
+    Get a random generator for the character, restoring previous state if available
+    
+    Args:
+        character_record: The character's record
+        
+    Returns:
+        A random generator with restored state or initialized from seed
+    """
+    seed = character_record.get("seed", 77)
+    random_generator = random.Random(seed)
+    
+    # Restore previous state if available
+    if character_record.get("random_state"):
+        try:
+            random_generator.setstate(character_record["random_state"])
+        except (ValueError, TypeError):
+            # If state is corrupted, start fresh from seed
+            random_generator = random.Random(seed)
+    
+    return random_generator
+
+def save_random_state(character_record: dict[str, Any], random_generator: random.Random) -> None:
+    """
+    Save the current random generator state to the character record
+    
+    Args:
+        character_record: The character's record
+        random_generator: The random generator to save state from
+    """
+    character_record["random_state"] = random_generator.getstate()
+
 def generate_character_name(random_generator: random.Random) -> str:
     """
     Generate a random sci-fi character name with separate first and last name pools
@@ -78,7 +111,8 @@ def create_character_record() -> dict[str, Any]:
         "skills": {},
         "career_history": [],  # Track career progression and generation events
         "skill_eligibility": 0,  # Track available skill points
-        "seed": 77
+        "seed": 77,
+        "random_state": None  # Store random generator state for consistent sequences
     }
 
 def roll_2d6(random_generator: random.Random) -> int:
@@ -652,6 +686,12 @@ def attempt_reenlistment(random_generator: random.Random, character_record: dict
     # Get career
     career = character_record["career"]
     age = character_record["age"]
+    terms_served = character_record.get("terms_served", 0)
+    
+    # Validate retirement eligibility (requires 5+ terms)
+    if preference == "retire" and terms_served < 5:
+        raise ValueError(f"Character cannot retire with only {terms_served} terms served. Retirement requires 5+ terms.")
+    
     # Define reenlistment target numbers
     reenlistment_targets = {
         'Navy': 6,

@@ -433,6 +433,9 @@
                     <div v-if="selectedCharacter.career">
                         <h4>Career Progression</h4>
                         <div class="button-group">
+                            <button class="btn" @click="checkSurvival" :disabled="loading" v-if="canAttemptSurvival()">
+                                [[ loading ? 'Checking...' : 'Survival Check' ]]
+                            </button>
                             <button class="btn" @click="checkCommission" :disabled="loading" v-if="canAttemptCommission()">
                                 [[ loading ? 'Checking...' : 'Commission' ]]
                             </button>
@@ -459,9 +462,19 @@
                             </button>
                         </div>
                         
-                        <div class="button-group" style="margin-top: 15px;">
-                            <button class="btn" @click="attemptReenlistment" :disabled="loading">
-                                [[ loading ? 'Checking...' : 'Attempt Reenlistment' ]]
+                        <div style="margin-top: 15px;">
+                            <h5>End of Term Decision</h5>
+                            <div class="form-group">
+                                <label for="reenlistmentChoice">Choose your preference:</label>
+                                <select id="reenlistmentChoice" v-model="selectedReenlistmentChoice" class="form-control">
+                                    <option value="">Select an option</option>
+                                    <option value="reenlist">Reenlist (continue career)</option>
+                                    <option value="discharge">Discharge (leave military)</option>
+                                    <option value="retire" v-if="canRetire()">Retire (leave military - requires 5+ terms)</option>
+                                </select>
+                            </div>
+                            <button class="btn" @click="attemptReenlistment" :disabled="loading || !selectedReenlistmentChoice">
+                                [[ loading ? 'Processing...' : 'Submit Decision' ]]
                             </button>
                         </div>
                     </div>
@@ -474,7 +487,7 @@
                         <div v-for="(event, index) in selectedCharacter.career_history" :key="index" class="career-event">
                             <strong>[[ event.event_type.replace('_', ' ').toUpperCase() ]]</strong>
                             <div v-if="event.outcome">[[ event.outcome ]]</div>
-                            <div v-if="event.skill_gained">Skill gained: [[ event.skill_gained ]]</div>
+                            <div v-if="event.skill_gained">Skill gained from [[ event.table_choice ]] table: [[ event.skill_gained ]]</div>
                             <div v-if="event.roll">Roll: [[ event.roll ]] (Target: [[ event.target ]])</div>
                         </div>
                     </div>
@@ -501,6 +514,7 @@
                     availableServices: ['Navy', 'Marines', 'Army', 'Scouts', 'Merchants', 'Others'],
                     selectedService: '',
                     selectedSkillTable: '',
+                    selectedReenlistmentChoice: '',
                     loading: false,
                     error: '',
                     success: '',
@@ -509,6 +523,7 @@
                     },
                     commissionAttemptedThisTerm: false,
                     promotionAttemptedThisTerm: false,
+                    survivalAttemptedThisTerm: false,
                     currentTermNumber: 0
                 }
             },
@@ -721,13 +736,14 @@
                         this.currentTermNumber = this.selectedCharacter.terms_served;
                         this.commissionAttemptedThisTerm = false;
                         this.promotionAttemptedThisTerm = false;
+                        this.survivalAttemptedThisTerm = false;
                     }
                     
-                    // Check if commission or promotion was attempted this term
+                    // Check if commission, promotion, or survival was attempted THIS TERM
                     if (this.selectedCharacter.career_history) {
-                        const thisTermEvents = this.selectedCharacter.career_history.filter(event => 
-                            event.event_type === 'commission_check' || event.event_type === 'promotion_check'
-                        );
+                        // Find events that happened after the start of current term
+                        const currentTermStartIndex = this.findCurrentTermStartIndex();
+                        const thisTermEvents = this.selectedCharacter.career_history.slice(currentTermStartIndex);
                         
                         if (thisTermEvents.some(event => event.event_type === 'commission_check')) {
                             this.commissionAttemptedThisTerm = true;
@@ -735,7 +751,79 @@
                         if (thisTermEvents.some(event => event.event_type === 'promotion_check')) {
                             this.promotionAttemptedThisTerm = true;
                         }
+                        if (thisTermEvents.some(event => event.event_type === 'survival_check')) {
+                            this.survivalAttemptedThisTerm = true;
+                        }
                     }
+                },
+
+                findCurrentTermStartIndex() {
+                    if (!this.selectedCharacter.career_history) return 0;
+                    
+                    const events = this.selectedCharacter.career_history;
+                    
+                    // Find the most recent reenlistment or enlistment that started current term
+                    for (let i = events.length - 1; i >= 0; i--) {
+                        const event = events[i];
+                        if (event.event_type === 'survival_check') {
+                            // Events after this survival check are in the new term
+                            return i + 1;
+                        }
+                        if (event.event_type === 'reenlistment_attempt' && event.continue_career) {
+                            // Events after successful reenlistment are in the new term
+                            return i + 1;
+                        }
+                        if (event.event_type === 'enlistment_attempt' && event.success) {
+                            // Events after enlistment are in the first term
+                            return i + 1;
+                        }
+                    }
+                    
+                    return 0;
+                },
+                
+                canAttemptSurvival() {
+                    return this.selectedCharacter && 
+                           this.selectedCharacter.career &&
+                           !this.survivalAttemptedThisTerm &&
+                           this.needsSurvivalCheck();
+                },
+                
+                needsSurvivalCheck() {
+                    // Check if character has re-enlisted and needs survival check for new term
+                    if (!this.selectedCharacter.career_history) return false;
+                    
+                    const lastEvent = this.selectedCharacter.career_history[this.selectedCharacter.career_history.length - 1];
+                    return lastEvent && 
+                           lastEvent.event_type === 'reenlistment_attempt' && 
+                           lastEvent.continue_career && 
+                           !this.hasRecentSurvivalCheck();
+                },
+                
+                hasRecentSurvivalCheck() {
+                    // Check if there's a survival check after the last reenlistment
+                    if (!this.selectedCharacter.career_history) return false;
+                    
+                    const events = this.selectedCharacter.career_history;
+                    let lastReenlistmentIndex = -1;
+                    
+                    for (let i = events.length - 1; i >= 0; i--) {
+                        if (events[i].event_type === 'reenlistment_attempt' && events[i].continue_career) {
+                            lastReenlistmentIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (lastReenlistmentIndex === -1) return false;
+                    
+                    // Check if there's a survival check after this reenlistment
+                    for (let i = lastReenlistmentIndex + 1; i < events.length; i++) {
+                        if (events[i].event_type === 'survival_check') {
+                            return true;
+                        }
+                    }
+                    
+                    return false;
                 },
                 
                 canAttemptCommission() {
@@ -750,6 +838,11 @@
                            this.selectedCharacter.career &&
                            this.selectedCharacter.commissioned &&
                            !this.promotionAttemptedThisTerm;
+                },
+                
+                canRetire() {
+                    return this.selectedCharacter && 
+                           this.selectedCharacter.terms_served >= 5;
                 },
                 
                 async generateCharacteristic(characteristicName) {
@@ -791,6 +884,34 @@
                         }
                     } catch (error) {
                         this.error = 'Failed to process enlistment: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async checkSurvival() {
+                    this.loading = true;
+                    this.error = '';
+                    this.success = '';
+                    
+                    try {
+                        const response = await axios.post(`/api/character/${this.currentCharacterId}/survival`);
+                        
+                        if (response.data.success) {
+                            this.survivalAttemptedThisTerm = true;
+                            
+                            if (response.data.survived) {
+                                this.success = `Survived the term! Age: ${response.data.new_age}, Terms: ${response.data.new_terms_served}`;
+                            } else {
+                                this.success = `Survival check failed: ${response.data.outcome}`;
+                            }
+                            // Reload character data
+                            await this.viewCharacter(this.currentCharacterId);
+                        } else {
+                            this.error = response.data.error || 'Survival check failed';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to process survival: ' + error.message;
                     } finally {
                         this.loading = false;
                     }
@@ -863,7 +984,8 @@
                         });
                         
                         if (response.data.success) {
-                            this.success = `Skill gained: ${response.data.skill_gained}`;
+                            const tableName = response.data.table_used.charAt(0).toUpperCase() + response.data.table_used.slice(1);
+                            this.success = `Skill gained from ${tableName} table: ${response.data.skill_gained}`;
                             this.selectedSkillTable = '';
                             // Reload character data
                             await this.viewCharacter(this.currentCharacterId);
@@ -884,15 +1006,19 @@
                     
                     try {
                         const response = await axios.post(`/api/character/${this.currentCharacterId}/reenlist`, {
-                            preference: 'reenlist'
+                            preference: this.selectedReenlistmentChoice
                         });
                         
                         if (response.data.success) {
-                            this.success = `Reenlistment result: ${response.data.outcome}`;
+                            this.success = `Decision result: ${response.data.outcome} (rolled ${response.data.roll} vs target ${response.data.target})`;
+                            this.selectedReenlistmentChoice = '';
                             
-                            // Reset term tracking for new term
-                            this.commissionAttemptedThisTerm = false;
-                            this.promotionAttemptedThisTerm = false;
+                            // Reset term tracking for new term if continuing career
+                            if (response.data.continue_career) {
+                                this.commissionAttemptedThisTerm = false;
+                                this.promotionAttemptedThisTerm = false;
+                                this.survivalAttemptedThisTerm = false;
+                            }
                             
                             // Reload character data
                             await this.viewCharacter(this.currentCharacterId);
