@@ -14,8 +14,10 @@ import os
 from typing import Dict, Any, List
 
 # Import our character generation functions
-from character_generation_endpoints import (
+from character_generation_rules import (
     set_seed,
+    get_random_generator,
+    save_random_state,
     create_character_record,
     generate_character_name,
     generate_characteristic,
@@ -27,7 +29,9 @@ from character_generation_endpoints import (
     resolve_skill,
     attempt_reenlistment,
     get_available_skill_tables,
-    get_skill_eligibility_count
+    get_skill_eligibility_count,
+    perform_mustering_out,
+    calculate_mustering_out_info
 )
 
 app = Flask(__name__)
@@ -306,11 +310,14 @@ def enlist_character(character_id: str):
                 "error": "All characteristics must be generated before enlistment"
             }), 400
         
-        # Create random generator with character's seed
-        random_generator = set_seed(character["seed"])
+        # Get random generator with restored state
+        random_generator = get_random_generator(character)
         
         # Call the stateless endpoint
         character = attempt_enlistment(random_generator, character, service)
+        
+        # Save the updated random state
+        save_random_state(character, random_generator)
         
         # Parse the enlistment result from career_history (last event)
         if not character.get("career_history"):
@@ -325,7 +332,7 @@ def enlist_character(character_id: str):
             "success": True,
             "service_attempted": service,
             "assigned_service": enlistment_result["assigned_service"],
-            "enlisted": enlistment_result["success"],
+            "outcome": enlistment_result["outcome"],
             "roll": enlistment_result["roll"],
             "target": enlistment_result["target"],
             "modifiers": ", ".join(enlistment_result["modifier_details"]) if enlistment_result["modifier_details"] else "None"
@@ -368,11 +375,14 @@ def commission_character(character_id: str):
                 "error": "Character must have a career before attempting commission"
             }), 400
         
-        # Create random generator with character's seed
-        random_generator = set_seed(character["seed"])
+        # Get random generator with restored state
+        random_generator = get_random_generator(character)
         
         # Call the stateless endpoint
         character = check_commission(random_generator, character)
+        
+        # Save the updated random state
+        save_random_state(character, random_generator)
         
         # Parse the commission result from career_history (last event)
         if not character.get("career_history"):
@@ -432,11 +442,14 @@ def promote_character(character_id: str):
                 "error": "Character must have a career before attempting promotion"
             }), 400
         
-        # Create random generator with character's seed
-        random_generator = set_seed(character["seed"])
+        # Get random generator with restored state
+        random_generator = get_random_generator(character)
         
         # Call the stateless endpoint
         character = check_promotion(random_generator, character)
+        
+        # Save the updated random state
+        save_random_state(character, random_generator)
         
         # Parse the promotion result from career_history (last event)
         if not character.get("career_history"):
@@ -457,6 +470,73 @@ def promote_character(character_id: str):
             "current_rank": promotion_result.get("current_rank"),
             "new_rank": character.get("rank") if promotion_result["success"] else None,
             "reason": promotion_result.get("reason", "")
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 404
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/character/<character_id>/survival', methods=['POST'])
+def check_character_survival(character_id: str):
+    """
+    Check survival for a character's current term
+    
+    Returns:
+    {
+        "success": true,
+        "survived": true,
+        "roll": 8,
+        "target": 5,
+        "modifiers": "+2 (Intelligence 9≥7)",
+        "outcome": "survived",
+        "new_age": 22,
+        "new_terms_served": 1
+    }
+    """
+    try:
+        character = get_character(character_id)
+        
+        # Validate that character has a career
+        if "career" not in character:
+            return jsonify({
+                "success": False,
+                "error": "Character must have a career before survival check"
+            }), 400
+        
+        # Get random generator with restored state
+        random_generator = get_random_generator(character)
+        
+        # Call the stateless endpoint
+        character = check_survival(random_generator, character)
+        
+        # Save the updated random state
+        save_random_state(character, random_generator)
+        
+        # Parse the survival result from career_history (last event)
+        if not character.get("career_history"):
+            raise ValueError("No career history available after survival check")
+        survival_result = character["career_history"][-1]
+        
+        # Update character in storage
+        update_character(character_id, character)
+        
+        # Return UI-friendly data
+        return jsonify({
+            "success": True,
+            "survived": survival_result["success"],
+            "roll": survival_result["roll"],
+            "target": survival_result["target"],
+            "modifiers": ", ".join(survival_result["modifier_details"]) if survival_result["modifier_details"] else "None",
+            "outcome": survival_result["outcome"],
+            "new_age": character["age"],
+            "new_terms_served": character["terms_served"]
         })
         
     except ValueError as e:
@@ -555,11 +635,14 @@ def resolve_character_skill(character_id: str):
         
         character = get_character(character_id)
         
-        # Create random generator with character's seed
-        random_generator = set_seed(character["seed"])
+        # Get random generator with restored state
+        random_generator = get_random_generator(character)
         
         # Call the stateless endpoint
         character = resolve_skill(random_generator, character, table_choice)
+        
+        # Save the updated random state
+        save_random_state(character, random_generator)
         
         # Parse the skill result from career_history (last event)
         if not character.get("career_history"):
@@ -622,11 +705,14 @@ def reenlist_character(character_id: str):
         
         character = get_character(character_id)
         
-        # Create random generator with character's seed
-        random_generator = set_seed(character["seed"])
+        # Get random generator with restored state
+        random_generator = get_random_generator(character)
         
         # Call the stateless endpoint
         character = attempt_reenlistment(random_generator, character, preference)
+        
+        # Save the updated random state
+        save_random_state(character, random_generator)
         
         # Parse the reenlistment result from career_history (last event)
         if not character.get("career_history"):
@@ -636,8 +722,8 @@ def reenlist_character(character_id: str):
         # Update character in storage
         update_character(character_id, character)
         
-        # Return UI-friendly data
-        return jsonify({
+        # Prepare response data
+        response_data = {
             "success": True,
             "outcome": reenlistment_result["outcome"],
             "status_text": reenlistment_result["status_text"],
@@ -646,6 +732,127 @@ def reenlist_character(character_id: str):
             "target": reenlistment_result["target"],
             "preference": reenlistment_result["preference"],
             "skill_eligibilities_granted": reenlistment_result.get("skill_eligibilities_granted", 0)
+        }
+        
+        # If character failed re-enlistment, include mustering out information
+        if not reenlistment_result["continue_career"]:
+            try:
+                mustering_out_info = calculate_mustering_out_info(character)
+                response_data["mustering_out_info"] = mustering_out_info
+            except Exception as e:
+                # If mustering out calculation fails, log it but don't break the response
+                print(f"Warning: Failed to calculate mustering out info: {e}")
+        
+        # Return UI-friendly data
+        return jsonify(response_data)
+        
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 404
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/character/<character_id>/muster-out', methods=['POST'])
+def muster_out_character(character_id: str):
+    """
+    Perform mustering out for a character
+    
+    Request body (optional):
+    {
+        "cash_rolls": 2,      // Optional: number of cash rolls to use (max 3)
+        "gambling_skill": 1   // Optional: gambling skill level for bonus
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "mustering_out_benefits": {
+            "cash": 25000,
+            "items": ["Blade", "High Psg"],
+            "characteristic_boosts": {"intelligence": 1},
+            "cash_roll_details": [...],
+            "benefit_roll_details": [...]
+        },
+        "total_rolls": 4,
+        "cash_rolls": 2,
+        "benefit_rolls": 2
+    }
+    """
+    try:
+        # Get request data
+        data = request.get_json() or {}
+        cash_rolls = data.get('cash_rolls')
+        
+        # Validate cash_rolls if provided
+        if cash_rolls is not None and (not isinstance(cash_rolls, int) or cash_rolls < 0 or cash_rolls > 3):
+            return jsonify({
+                "success": False,
+                "error": "cash_rolls must be an integer between 0 and 3"
+            }), 400
+        
+        character = get_character(character_id)
+        
+        # Check if character is eligible for mustering out
+        if character.get('terms_served', 0) == 0:
+            return jsonify({
+                "success": False,
+                "error": "Character must have served at least one term to muster out"
+            }), 400
+        
+        # Check if already mustered out
+        if character.get('mustering_out_benefits'):
+            return jsonify({
+                "success": False,
+                "error": "Character has already mustered out"
+            }), 400
+        
+        # Get random generator with restored state
+        random_generator = get_random_generator(character)
+        
+        # Call the stateless endpoint
+        character = perform_mustering_out(random_generator, character, cash_rolls)
+        
+        # Save the updated random state
+        save_random_state(character, random_generator)
+        
+        # Update character in storage
+        update_character(character_id, character)
+        
+        # Get mustering out results
+        mustering_out_benefits = character.get('mustering_out_benefits', {})
+        
+        # Calculate rolls for response
+        terms_served = character.get('terms_served', 0)
+        rank = character.get('rank', 0)
+        total_rolls = int(terms_served)
+        if 1 <= rank <= 2:
+            total_rolls += 1
+        elif 3 <= rank <= 4:
+            total_rolls += 2
+        elif 5 <= rank <= 6:
+            total_rolls += 3
+        
+        actual_cash_rolls = len(mustering_out_benefits.get('cash_roll_details', []))
+        actual_benefit_rolls = len(mustering_out_benefits.get('benefit_roll_details', []))
+        
+        # Return UI-friendly data
+        return jsonify({
+            "success": True,
+            "mustering_out_benefits": mustering_out_benefits,
+            "total_rolls": total_rolls,
+            "cash_rolls": actual_cash_rolls,
+            "benefit_rolls": actual_benefit_rolls,
+            "character_updates": {
+                "characteristics": character.get('characteristics', {}),
+                "cash": mustering_out_benefits.get('cash', 0),
+                "items": mustering_out_benefits.get('items', []),
+                "characteristic_boosts": mustering_out_benefits.get('characteristic_boosts', {})
+            }
         })
         
     except ValueError as e:

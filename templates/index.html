@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classic Traveller Character Generator</title>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <style>
         * {
@@ -229,6 +229,35 @@
             margin-bottom: 20px;
         }
         
+        .mustering-results {
+            background-color: #fff8dc;
+            border: 2px solid #ffa500;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .mustering-results h6 {
+            color: #b8860b;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        .cash-rolls, .benefit-rolls {
+            margin-bottom: 15px;
+        }
+        
+        .cash-rolls ul, .benefit-rolls ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        
+        .cash-rolls li, .benefit-rolls li {
+            margin-bottom: 3px;
+            font-family: "Courier New", monospace;
+            color: #333;
+        }
+        
         .career-history {
             margin-top: 20px;
         }
@@ -255,6 +284,23 @@
         .generation-controls h3 {
             margin-top: 0;
             color: #1e3c72;
+        }
+        
+        .mustering-benefits {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .benefit-item {
+            padding: 10px;
+            background: rgba(255, 165, 0, 0.1);
+            border-radius: 5px;
+            border-left: 3px solid #ffa500;
+        }
+        
+        .benefit-item strong {
+            color: #cc8400;
         }
         
         .button-group {
@@ -367,10 +413,10 @@
             <!-- Character Detail Page -->
             <div v-if="currentPage === 'character-detail' && selectedCharacter">
                 <div class="card">
-                    <h2>[[ selectedCharacter.name ]]</h2>
+                    <h2>[[ getDisplayName() ]]</h2>
                     <div class="character-info">
                         <span><strong>Age:</strong> [[ selectedCharacter.age ]]</span>
-                        <span><strong>Terms:</strong> [[ selectedCharacter.terms_served ]]</span>
+                        <span><strong>Terms:</strong> [[ formatTermsDisplay() ]]</span>
                         <span><strong>Career:</strong> [[ selectedCharacter.career || 'None' ]]</span>
                         <span v-if="selectedCharacter.rank !== undefined"><strong>Rank:</strong> [[ selectedCharacter.rank ]]</span>
                         <span v-if="hasAllCharacteristics()" class="upp"><strong>UPP:</strong> [[ generateUPP() ]]</span>
@@ -380,6 +426,25 @@
                     <div v-if="hasSkills()" class="character-info">
                         <div class="skills-display">
                             <strong>Skills:</strong> [[ formatSkillsForDisplay() ]]
+                        </div>
+                    </div>
+                    
+                    <!-- Mustering Out Benefits -->
+                    <div v-if="selectedCharacter.mustering_out_benefits" class="card" style="margin-top: 20px; background: #f0f8ff; border-left: 4px solid #ffa500;">
+                        <h3>🎖️ Mustering Out Benefits</h3>
+                        <div class="mustering-benefits">
+                            <div v-if="selectedCharacter.mustering_out_benefits.cash" class="benefit-item">
+                                <strong>💰 Cash:</strong> Cr[[ selectedCharacter.mustering_out_benefits.cash.toLocaleString() ]]
+                            </div>
+                            <div v-if="selectedCharacter.mustering_out_benefits.items && selectedCharacter.mustering_out_benefits.items.length > 0" class="benefit-item">
+                                <strong>🎁 Items:</strong> [[ selectedCharacter.mustering_out_benefits.items.join(', ') ]]
+                            </div>
+                            <div v-if="selectedCharacter.mustering_out_benefits.characteristic_boosts && Object.keys(selectedCharacter.mustering_out_benefits.characteristic_boosts).length > 0" class="benefit-item">
+                                <strong>📈 Characteristic Boosts:</strong> 
+                                <span v-for="(boost, char) in selectedCharacter.mustering_out_benefits.characteristic_boosts" :key="char">
+                                    [[ char.charAt(0).toUpperCase() + char.slice(1) ]] +[[ boost ]]
+                                </span>
+                            </div>
                         </div>
                     </div>
                     
@@ -445,7 +510,7 @@
                         </div>
                         
                         <!-- Skill Resolution -->
-                        <div v-if="selectedCharacter.skill_eligibility > 0">
+                        <div v-if="canResolveSkills()">
                             <h5>Skill Resolution ([[ selectedCharacter.skill_eligibility ]] available)</h5>
                             <div class="form-group">
                                 <label for="skillTable">Choose Skill Table:</label>
@@ -462,19 +527,64 @@
                             </button>
                         </div>
                         
-                        <div style="margin-top: 15px;">
+                        <div v-if="needsReenlistmentDecision()" style="margin-top: 15px;">
                             <h5>End of Term Decision</h5>
                             <div class="form-group">
-                                <label for="reenlistmentChoice">Choose your preference:</label>
-                                <select id="reenlistmentChoice" v-model="selectedReenlistmentChoice" class="form-control">
-                                    <option value="">Select an option</option>
-                                    <option value="reenlist">Reenlist (continue career)</option>
-                                    <option value="discharge">Discharge (leave military)</option>
-                                    <option value="retire" v-if="canRetire()">Retire (leave military - requires 5+ terms)</option>
-                                </select>
+                                <div v-if="isCharacterInjured()">
+                                    <label for="reenlistmentChoice">Medical Discharge Required:</label>
+                                    <select id="reenlistmentChoice" v-model="selectedReenlistmentChoice" class="form-control">
+                                        <option value="">Select to confirm</option>
+                                        <option value="reenlist">Medical Discharge (injured - cannot continue)</option>
+                                    </select>
+                                    <small class="form-text text-muted">Your character was injured during the survival check and must be medically discharged.</small>
+                                </div>
+                                <div v-else>
+                                    <label for="reenlistmentChoice">Choose your preference:</label>
+                                    <select id="reenlistmentChoice" v-model="selectedReenlistmentChoice" class="form-control">
+                                        <option value="">Select an option</option>
+                                        <option value="reenlist">Reenlist (continue service)</option>
+                                        <option value="leave" v-if="selectedCharacter.terms_served < 5">Leave (end service)</option>
+                                        <option value="retire" v-if="selectedCharacter.terms_served >= 5">Retire (end service)</option>
+                                    </select>
+                                    <small class="form-text text-muted">
+                                        <span v-if="selectedCharacter.terms_served < 5">After term 5, you must retire instead of leave.</span>
+                                        <span v-if="selectedCharacter.terms_served >= 5">You can only retire after completing 5+ terms.</span>
+                                        Rolling 12 means mandatory retention regardless of choice.
+                                    </small>
+                                </div>
                             </div>
                             <button class="btn" @click="attemptReenlistment" :disabled="loading || !selectedReenlistmentChoice">
                                 [[ loading ? 'Processing...' : 'Submit Decision' ]]
+                            </button>
+                        </div>
+                        
+                        <!-- Mustering Out -->
+                        <div v-if="musteringOutInfo" style="margin-top: 20px; padding: 15px; border: 2px solid #ffa500; border-radius: 5px; background-color: #fff8dc;">
+                            <h5>🎖️ Mustering Out</h5>
+                            <p>Your character has completed their military service and is eligible for mustering out benefits!</p>
+                            <div class="mustering-info">
+                                <p><strong>Career:</strong> [[ musteringOutInfo.career ]]</p>
+                                <p><strong>Terms Served:</strong> [[ musteringOutInfo.terms_served ]]</p>
+                                <p><strong>Rank:</strong> [[ musteringOutInfo.rank ]] [[ musteringOutInfo.rank_bonus > 0 ? '(+1 DM for rank 5+)' : '' ]]</p>
+                                <p><strong>Total Mustering Out Rolls:</strong> [[ musteringOutInfo.total_rolls ]]</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="cashRolls">Cash vs Benefits Allocation:</label>
+                                <select id="cashRolls" v-model="selectedCashRolls" class="form-control">
+                                    <option v-for="option in getCashRollOptions()" :key="option.value" :value="option.value">
+                                        [[ option.label ]]
+                                    </option>
+                                </select>
+                                <small class="form-text text-muted">You can take up to 3 rolls as cash, the rest must be benefits.</small>
+                            </div>
+                            
+                            <div v-if="selectedCharacter.skills && selectedCharacter.skills.Gambling" class="form-group">
+                                <p><strong>Gambling Skill:</strong> [[ selectedCharacter.skills.Gambling ]] (+[[ selectedCharacter.skills.Gambling ]] DM to cash rolls)</p>
+                            </div>
+                            
+                            <button class="btn" @click="performMusteringOut" :disabled="loading || selectedCashRolls === null" style="background-color: #ffa500; color: white;">
+                                [[ loading ? 'Processing...' : 'Muster Out' ]]
                             </button>
                         </div>
                     </div>
@@ -494,7 +604,12 @@
                 </div>
                 
                 <div v-if="error" class="error">[[ error ]]</div>
-                <div v-if="success" class="success">[[ success ]]</div>
+                <div v-if="success" class="success" v-html="success"></div>
+                <div style="background: yellow; padding: 10px; margin: 10px 0;">
+                    <strong>DEBUG:</strong><br>
+                    selectedCharacter exists: [[ !!selectedCharacter ]]<br>
+                    selectedCharacter.career: [[ selectedCharacter?.career ]]<br>
+                </div>
             </div>
         </div>
     </div>
@@ -524,7 +639,9 @@
                     commissionAttemptedThisTerm: false,
                     promotionAttemptedThisTerm: false,
                     survivalAttemptedThisTerm: false,
-                    currentTermNumber: 0
+                    currentTermNumber: 0,
+                    musteringOutInfo: null,
+                    selectedCashRolls: null
                 }
             },
             
@@ -731,8 +848,13 @@
                 updateTermTracking() {
                     if (!this.selectedCharacter) return;
                     
-                    // Reset tracking if we're in a new term
-                    if (this.currentTermNumber !== this.selectedCharacter.terms_served) {
+                    // Reset tracking if we're in a new term OR if character just enlisted
+                    const justEnlisted = this.selectedCharacter.career && 
+                                       this.selectedCharacter.career_history && 
+                                       this.selectedCharacter.career_history.length > 0 && 
+                                       this.selectedCharacter.career_history[this.selectedCharacter.career_history.length - 1].event_type === 'enlistment_attempt';
+                    
+                    if (this.currentTermNumber !== this.selectedCharacter.terms_served || justEnlisted) {
                         this.currentTermNumber = this.selectedCharacter.terms_served;
                         this.commissionAttemptedThisTerm = false;
                         this.promotionAttemptedThisTerm = false;
@@ -773,7 +895,7 @@
                             // Events after successful reenlistment are in the new term
                             return i + 1;
                         }
-                        if (event.event_type === 'enlistment_attempt' && event.success) {
+                        if (event.event_type === 'enlistment_attempt') {
                             // Events after enlistment are in the first term
                             return i + 1;
                         }
@@ -790,14 +912,32 @@
                 },
                 
                 needsSurvivalCheck() {
-                    // Check if character has re-enlisted and needs survival check for new term
+                    // Check if character needs survival check for current term
                     if (!this.selectedCharacter.career_history) return false;
                     
-                    const lastEvent = this.selectedCharacter.career_history[this.selectedCharacter.career_history.length - 1];
-                    return lastEvent && 
-                           lastEvent.event_type === 'reenlistment_attempt' && 
-                           lastEvent.continue_career && 
-                           !this.hasRecentSurvivalCheck();
+                    const events = this.selectedCharacter.career_history;
+                    const lastEvent = events[events.length - 1];
+                    
+                    // Case 1: After any enlistment attempt (first term) - both enlisted and drafted need survival checks
+                    if (lastEvent && lastEvent.event_type === 'enlistment_attempt') {
+                        // Check if there's already a survival check after enlistment
+                        const enlistmentIndex = events.length - 1;
+                        for (let i = enlistmentIndex + 1; i < events.length; i++) {
+                            if (events[i].event_type === 'survival_check') {
+                                return false; // Already have survival check
+                            }
+                        }
+                        return true; // Need survival check for first term
+                    }
+                    
+                    // Case 2: After successful reenlistment (subsequent terms)
+                    if (lastEvent && 
+                        lastEvent.event_type === 'reenlistment_attempt' && 
+                        lastEvent.continue_career) {
+                        return !this.hasRecentSurvivalCheck();
+                    }
+                    
+                    return false;
                 },
                 
                 hasRecentSurvivalCheck() {
@@ -830,19 +970,38 @@
                     return this.selectedCharacter && 
                            this.selectedCharacter.career &&
                            !this.selectedCharacter.commissioned &&
-                           !this.commissionAttemptedThisTerm;
+                           !this.commissionAttemptedThisTerm &&
+                           this.survivalAttemptedThisTerm;
                 },
                 
                 canAttemptPromotion() {
+                    // Check if already promoted this term
+                    if (this.selectedCharacter && this.selectedCharacter.terms && this.selectedCharacter.terms.length > 0) {
+                        const currentTerm = this.selectedCharacter.terms[this.selectedCharacter.terms.length - 1];
+                        if (currentTerm.promotions && currentTerm.promotions.length > 0) {
+                            return false; // Already promoted this term
+                        }
+                    }
+                    
                     return this.selectedCharacter && 
                            this.selectedCharacter.career &&
                            this.selectedCharacter.commissioned &&
-                           !this.promotionAttemptedThisTerm;
+                           !this.promotionAttemptedThisTerm &&
+                           this.survivalAttemptedThisTerm;
                 },
                 
                 canRetire() {
                     return this.selectedCharacter && 
                            this.selectedCharacter.terms_served >= 5;
+                },
+                
+                isCharacterInjured() {
+                    // Check if character was injured in the current term
+                    if (!this.selectedCharacter || !this.selectedCharacter.terms) return false;
+                    
+                    // Get the most recent term
+                    const currentTerm = this.selectedCharacter.terms[this.selectedCharacter.terms.length - 1];
+                    return currentTerm && currentTerm.survival === "injured";
                 },
                 
                 async generateCharacteristic(characteristicName) {
@@ -1020,6 +1179,13 @@
                                 this.survivalAttemptedThisTerm = false;
                             }
                             
+                            // Handle mustering out if character failed re-enlistment
+                            if (!response.data.continue_career && response.data.mustering_out_info) {
+                                this.musteringOutInfo = response.data.mustering_out_info;
+                                this.selectedCashRolls = this.musteringOutInfo.max_cash_rolls; // Default to max cash rolls
+                                this.success += ` Character is eligible for mustering out with ${this.musteringOutInfo.total_rolls} rolls.`;
+                            }
+                            
                             // Reload character data
                             await this.viewCharacter(this.currentCharacterId);
                         } else {
@@ -1030,6 +1196,224 @@
                     } finally {
                         this.loading = false;
                     }
+                },
+                
+                async performMusteringOut() {
+                    this.loading = true;
+                    this.error = '';
+                    this.success = '';
+                    
+                    try {
+                        const response = await axios.post(`/api/character/${this.currentCharacterId}/muster-out`, {
+                            cash_rolls: this.selectedCashRolls
+                        });
+                        
+                        if (response.data.success) {
+                            const benefits = response.data.mustering_out_benefits;
+                            let resultsHtml = '<div class="mustering-results"><h6>🎖️ Mustering Out Results</h6>';
+                            
+                            // Show cash roll details
+                            if (benefits.cash_roll_details && benefits.cash_roll_details.length > 0) {
+                                resultsHtml += '<div class="cash-rolls"><strong>Cash Rolls:</strong><ul>';
+                                benefits.cash_roll_details.forEach(roll => {
+                                    let rollText = `Roll ${roll.roll_number}: ${roll.base_roll}`;
+                                    if (roll.rank_bonus > 0) rollText += ` +${roll.rank_bonus} (rank)`;
+                                    if (roll.gambling_bonus > 0) rollText += ` +${roll.gambling_bonus} (gambling)`;
+                                    rollText += ` = ${roll.total_roll} → Cr${roll.amount.toLocaleString()}`;
+                                    resultsHtml += `<li>${rollText}</li>`;
+                                });
+                                resultsHtml += `</ul><strong>Total Cash: Cr${benefits.cash.toLocaleString()}</strong></div>`;
+                            }
+                            
+                            // Show benefit roll details
+                            if (benefits.benefit_roll_details && benefits.benefit_roll_details.length > 0) {
+                                resultsHtml += '<div class="benefit-rolls"><strong>Benefit Rolls:</strong><ul>';
+                                benefits.benefit_roll_details.forEach(roll => {
+                                    let rollText = `Roll ${roll.roll_number}: ${roll.base_roll}`;
+                                    if (roll.rank_bonus > 0) rollText += ` +${roll.rank_bonus} (rank)`;
+                                    rollText += ` = ${roll.total_roll} → ${roll.benefit}`;
+                                    resultsHtml += `<li>${rollText}</li>`;
+                                });
+                                resultsHtml += '</ul></div>';
+                            }
+                            
+                            resultsHtml += '</div>';
+                            this.success = resultsHtml;
+                            
+                            // Clear mustering out info
+                            this.musteringOutInfo = null;
+                            this.selectedCashRolls = null;
+                            
+                            // Reload character data
+                            await this.viewCharacter(this.currentCharacterId);
+                        } else {
+                            this.error = response.data.error || 'Mustering out failed';
+                        }
+                    } catch (error) {
+                        this.error = 'Failed to process mustering out: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                getCashRollOptions() {
+                    if (!this.musteringOutInfo) return [];
+                    const options = [];
+                    for (let i = 0; i <= Math.min(3, this.musteringOutInfo.total_rolls); i++) {
+                        const benefitRolls = this.musteringOutInfo.total_rolls - i;
+                        options.push({
+                            value: i,
+                            label: `${i} cash, ${benefitRolls} benefits`
+                        });
+                    }
+                    return options;
+                },
+
+                getDisplayName() {
+                    if (!this.selectedCharacter) return '';
+                    
+                    // Only add rank prefix for commissioned officers in services with ranks
+                    if (this.selectedCharacter.commissioned && 
+                        this.selectedCharacter.career && 
+                        ['Navy', 'Marines', 'Army', 'Merchants'].includes(this.selectedCharacter.career)) {
+                        
+                        const rank = this.selectedCharacter.rank || 0;
+                        const rankTitles = {
+                            'Navy': ['Enlisted', 'Ensign', 'Lieutenant', 'Lt. Commander', 'Commander', 'Captain', 'Admiral'],
+                            'Marines': ['Enlisted', 'Lieutenant', 'Captain', 'Major', 'Lt. Colonel', 'Colonel', 'General'],
+                            'Army': ['Enlisted', 'Lieutenant', 'Captain', 'Major', 'Lt. Colonel', 'Colonel', 'General'],
+                            'Merchants': ['Enlisted', '4th Officer', '3rd Officer', '2nd Officer', '1st Officer', 'Captain']
+                        };
+                        
+                        const title = rankTitles[this.selectedCharacter.career][rank] || 'Officer';
+                        return `${title} ${this.selectedCharacter.name}`;
+                    }
+                    
+                    return this.selectedCharacter.name;
+                },
+
+                formatTermsDisplay() {
+                    if (!this.selectedCharacter) return '';
+                    
+                    const termsServed = this.selectedCharacter.terms_served;
+                    
+                    // Check if character has a fractional term (0.5)
+                    if (termsServed % 1 !== 0) {
+                        // Character was separated mid-term, determine the reason
+                        const separationReason = this.getSeparationReason();
+                        const completedTerms = Math.floor(termsServed);
+                        
+                        if (completedTerms === 0) {
+                            return `0 terms (${separationReason})`;
+                        } else {
+                            return `${completedTerms} terms (${separationReason})`;
+                        }
+                    }
+                    
+                    return termsServed.toString();
+                },
+
+                getSeparationReason() {
+                    if (!this.selectedCharacter || !this.selectedCharacter.career_history) return 'separated';
+                    
+                    // Find the last reenlistment attempt
+                    const events = this.selectedCharacter.career_history;
+                    for (let i = events.length - 1; i >= 0; i--) {
+                        const event = events[i];
+                        if (event.event_type === 'reenlistment_attempt') {
+                            if (event.outcome === 'medical_discharge') {
+                                return 'medical discharge';
+                            } else if (event.outcome === 'discharged') {
+                                return this.selectedCharacter.terms_served >= 5 ? 'military discharge' : 'military discharge';
+                            } else if (event.outcome === 'retired') {
+                                return 'retired';
+                            } else if (event.preference === 'discharge') {
+                                return 'discharged';
+                            } else if (event.preference === 'retire') {
+                                return 'retired';
+                            }
+                            // If failed reenlistment roll
+                            return 'military discharge';
+                        }
+                    }
+                    
+                    // Check if character was injured (for medical discharge)
+                    for (let i = events.length - 1; i >= 0; i--) {
+                        const event = events[i];
+                        if (event.event_type === 'survival_check' && event.outcome === 'injured') {
+                            return 'medical discharge';
+                        }
+                    }
+                    
+                    return 'separated';
+                },
+
+                canResolveSkills() {
+                    // Skills can only be resolved after all required checks are completed
+                    if (!this.selectedCharacter || !this.selectedCharacter.skill_eligibility || this.selectedCharacter.skill_eligibility === 0) {
+                        return false;
+                    }
+                    
+                    // Must have completed survival check first
+                    if (!this.survivalAttemptedThisTerm) {
+                        return false;
+                    }
+                    
+                    // If character was injured, they can't do commission/promotion checks, so skills are available
+                    if (this.isCharacterInjured()) {
+                        return true;
+                    }
+                    
+                    // For non-injured characters, check if commission and promotion checks are completed (if applicable)
+                    return this.allRequiredChecksCompleted();
+                },
+                
+                allRequiredChecksCompleted() {
+                    // Check if all required commission and promotion checks are completed
+                    const needsCommission = this.selectedCharacter && 
+                                          this.selectedCharacter.career &&
+                                          !this.selectedCharacter.commissioned &&
+                                          ['Navy', 'Marines', 'Army', 'Merchants'].includes(this.selectedCharacter.career);
+                    
+                    const needsPromotion = this.selectedCharacter && 
+                                         this.selectedCharacter.career &&
+                                         this.selectedCharacter.commissioned &&
+                                         ['Navy', 'Marines', 'Army', 'Merchants'].includes(this.selectedCharacter.career);
+                    
+                    // If commission is needed but not attempted, not ready for skills
+                    if (needsCommission && !this.commissionAttemptedThisTerm) {
+                        return false;
+                    }
+                    
+                    // If promotion is needed but not attempted, not ready for skills
+                    if (needsPromotion && !this.promotionAttemptedThisTerm) {
+                        return false;
+                    }
+                    
+                    return true;
+                },
+
+                needsReenlistmentDecision() {
+                    // Character needs reenlistment decision if:
+                    // 1. They have a career
+                    // 2. They have completed survival check this term
+                    // 3. Either they are injured (immediate medical discharge) OR all skills are resolved
+                    if (!this.selectedCharacter || !this.selectedCharacter.career) {
+                        return false;
+                    }
+                    
+                    // Must have completed survival check
+                    if (!this.survivalAttemptedThisTerm) {
+                        return false;
+                    }
+                    
+                    // If injured, immediate reenlistment decision (medical discharge)
+                    if (this.isCharacterInjured()) {
+                        return true;
+                    }
+                    
+                    // For non-injured characters, reenlistment only appears when all skills are resolved
+                    return this.selectedCharacter.skill_eligibility === 0;
                 }
             }
         }).mount('#app');
