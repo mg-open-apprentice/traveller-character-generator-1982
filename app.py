@@ -31,7 +31,8 @@ from character_generation_rules import (
     get_available_skill_tables,
     get_skill_eligibility_count,
     perform_mustering_out,
-    calculate_mustering_out_info
+    calculate_mustering_out_info,
+    check_ageing
 )
 
 app = Flask(__name__)
@@ -865,6 +866,52 @@ def muster_out_character(character_id: str):
             "success": False,
             "error": str(e)
         }), 500
+
+@app.route('/api/character/<character_id>/check-ageing-after-skills', methods=['POST'])
+def check_ageing_after_skills(character_id: str):
+    """
+    Check for ageing effects after all skills are resolved, if age >= 34.
+    Returns:
+    {
+        "success": true,
+        "ageing_applicable": true/false,
+        "ageing_effects": [...],
+        "checks_performed": [...],
+        "total_effects": 0,
+        "previous_age": ...,
+        "current_age": ...
+    }
+    """
+    try:
+        character = get_character(character_id)
+        random_generator = get_random_generator(character)
+        age = character.get("age", 18)
+        if age < 34:
+            return jsonify({
+                "success": True,
+                "ageing_applicable": False
+            })
+        # Perform ageing check
+        character = check_ageing(random_generator, character)
+        save_random_state(character, random_generator)
+        update_character(character_id, character)
+        # Get the last ageing event
+        ageing_result = character["career_history"][-1] if character["career_history"] else {}
+        return jsonify({
+            "success": True,
+            "ageing_applicable": True,
+            "ageing_effects": ageing_result.get("ageing_effects", []),
+            "checks_performed": ageing_result.get("checks_performed", []),
+            "total_effects": ageing_result.get("total_effects", 0),
+            "previous_age": ageing_result.get("previous_age", 0),
+            "current_age": ageing_result.get("current_age", 0)
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 
 @app.route('/api/characters', methods=['GET'])
 def list_characters():

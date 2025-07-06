@@ -838,8 +838,169 @@ def attempt_reenlistment(random_generator: random.Random, character_record: dict
             # Normal term completion: all characters get +1 term and +4 years aging
             character_record["age"] = character_record.get("age", 18) + 4
             character_record["terms_served"] = character_record.get("terms_served", 0) + 1
+            # Ageing is now triggered after skills are resolved, not here
     
     return character_record
+
+def check_ageing(random_generator: random.Random, character_record: dict[str, Any]) -> dict[str, Any]:
+    """
+    Check for ageing effects when a character completes a term and ages
+    
+    Args:
+        random_generator: An instance of random.Random with the user's seed
+        character_record: The character's record
+        
+    Returns:
+        Updated character record with ageing results
+    """
+    ageing_thresholds = [34, 38, 42, 46, 50, 54, 58, 62]
+    advanced_ageing_start = 66
+    
+    # Get current age and previous age
+    current_age = character_record.get("age", 18)
+    previous_age = current_age - 4  # Assuming 4 years per term
+    
+    ageing_effects = []
+    checks_performed = []
+    
+    # Create ageing check event
+    ageing_event = {
+        "event_type": "ageing_check",
+        "previous_age": previous_age,
+        "current_age": current_age,
+        "age_increase": 4,
+        "checks_performed": [],
+        "ageing_effects": []
+    }
+    
+    # Check standard thresholds (34 - 62)
+    for threshold in ageing_thresholds:
+        if previous_age < threshold <= current_age:
+            checks_performed.append(threshold)
+            effects = apply_ageing_effects(random_generator, character_record, threshold)
+            ageing_effects.extend(effects)
+    
+    # Check advanced ageing (66+)
+    if current_age >= advanced_ageing_start:
+        for age in range(max(66, ((previous_age // 4) + 1) * 4), current_age + 1, 4):
+            if age >= advanced_ageing_start:
+                checks_performed.append(age)
+                effects = apply_advanced_ageing_effects(random_generator, character_record, age)
+                ageing_effects.extend(effects)
+    
+    # Update ageing event with results
+    ageing_event["checks_performed"] = checks_performed
+    ageing_event["ageing_effects"] = ageing_effects
+    ageing_event["total_effects"] = len(ageing_effects)
+    
+    # Add the ageing check to the character's career history
+    character_record["career_history"].append(ageing_event)
+    
+    return character_record
+
+def apply_ageing_effects(random_generator: random.Random, character_record: dict[str, Any], age: int) -> List[str]:
+    """Apply ageing effects at a specific age"""
+    effects = []
+    characteristics = character_record.get("characteristics", {})
+    
+    if age in [34, 38, 42, 46]:
+        # Phase 1: Early ageing
+        checks = [
+            ('strength', 8, 1), ('dexterity', 7, 1), ('endurance', 8, 1)
+        ]
+    elif age in [50, 54, 58, 62]:
+        # Phase 2: Advanced ageing  
+        checks = [
+            ('strength', 9, 1), ('dexterity', 8, 1), ('endurance', 9, 1)
+        ]
+    else:
+        return effects
+    
+    for stat, target, loss in checks:
+        roll = roll_2d6(random_generator)
+        if roll < target:
+            old_value = characteristics[stat]
+            characteristics[stat] = max(0, characteristics[stat] - loss)  # Prevent negative
+            actual_loss = old_value - characteristics[stat]
+            effects.append(f"-{actual_loss} {stat.upper()}")
+            
+            # Log individual ageing check
+            ageing_check_event = {
+                "event_type": "ageing_check_detail",
+                "age": age,
+                "stat": stat.upper(),
+                "roll": roll,
+                "target": target,
+                "old_value": old_value,
+                "new_value": characteristics[stat],
+                "loss": actual_loss,
+                "phase": "standard"
+            }
+            character_record["career_history"].append(ageing_check_event)
+        else:
+            # Log individual ageing check (no loss)
+            ageing_check_event = {
+                "event_type": "ageing_check_detail",
+                "age": age,
+                "stat": stat.upper(),
+                "roll": roll,
+                "target": target,
+                "old_value": characteristics[stat],
+                "new_value": characteristics[stat],
+                "loss": 0,
+                "phase": "standard"
+            }
+            character_record["career_history"].append(ageing_check_event)
+    
+    return effects
+
+def apply_advanced_ageing_effects(random_generator: random.Random, character_record: dict[str, Any], age: int) -> List[str]:
+    """Apply advanced ageing effects for ages 66+"""
+    effects = []
+    characteristics = character_record.get("characteristics", {})
+    
+    # Advanced ageing affects STR, DEX, END, and INT
+    checks = [
+        ('strength', 9, 2), ('dexterity', 9, 2), ('endurance', 9, 2), ('intelligence', 9, 1)
+    ]
+    
+    for stat, target, loss in checks:
+        roll = roll_2d6(random_generator)
+        if roll < target:
+            old_value = characteristics[stat]
+            characteristics[stat] = max(0, characteristics[stat] - loss)  # Prevent negative
+            actual_loss = old_value - characteristics[stat]
+            effects.append(f"-{actual_loss} {stat.upper()}")
+            
+            # Log individual advanced ageing check
+            ageing_check_event = {
+                "event_type": "ageing_check_detail",
+                "age": age,
+                "stat": stat.upper(),
+                "roll": roll,
+                "target": target,
+                "old_value": old_value,
+                "new_value": characteristics[stat],
+                "loss": actual_loss,
+                "phase": "advanced"
+            }
+            character_record["career_history"].append(ageing_check_event)
+        else:
+            # Log individual advanced ageing check (no loss)
+            ageing_check_event = {
+                "event_type": "ageing_check_detail",
+                "age": age,
+                "stat": stat.upper(),
+                "roll": roll,
+                "target": target,
+                "old_value": characteristics[stat],
+                "new_value": characteristics[stat],
+                "loss": 0,
+                "phase": "advanced"
+            }
+            character_record["career_history"].append(ageing_check_event)
+    
+    return effects
 
 def get_available_skill_tables(character_record: dict[str, Any]) -> dict[str, bool]:
     """

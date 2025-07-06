@@ -527,6 +527,8 @@
                             </button>
                         </div>
                         
+
+                        
                         <div v-if="needsReenlistmentDecision()" style="margin-top: 15px;">
                             <h5>End of Term Decision</h5>
                             <div class="form-group">
@@ -543,7 +545,7 @@
                                     <select id="reenlistmentChoice" v-model="selectedReenlistmentChoice" class="form-control">
                                         <option value="">Select an option</option>
                                         <option value="reenlist">Reenlist (continue service)</option>
-                                        <option value="leave" v-if="selectedCharacter.terms_served < 5">Leave (end service)</option>
+                                        <option value="discharge" v-if="selectedCharacter.terms_served < 5">Leave (end service)</option>
                                         <option value="retire" v-if="selectedCharacter.terms_served >= 5">Retire (end service)</option>
                                     </select>
                                     <small class="form-text text-muted">
@@ -599,17 +601,15 @@
                             <div v-if="event.outcome">[[ event.outcome ]]</div>
                             <div v-if="event.skill_gained">Skill gained from [[ event.table_choice ]] table: [[ event.skill_gained ]]</div>
                             <div v-if="event.roll">Roll: [[ event.roll ]] (Target: [[ event.target ]])</div>
+                            <div v-if="event.event_type === 'ageing_check' && event.ageing_effects && event.ageing_effects.length > 0">
+                                <span style="color: #d32f2f;">⏰ Ageing Effects: [[ event.ageing_effects.join(', ') ]]</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <div v-if="error" class="error">[[ error ]]</div>
                 <div v-if="success" class="success" v-html="success"></div>
-                <div style="background: yellow; padding: 10px; margin: 10px 0;">
-                    <strong>DEBUG:</strong><br>
-                    selectedCharacter exists: [[ !!selectedCharacter ]]<br>
-                    selectedCharacter.career: [[ selectedCharacter?.career ]]<br>
-                </div>
             </div>
         </div>
     </div>
@@ -641,7 +641,8 @@
                     survivalAttemptedThisTerm: false,
                     currentTermNumber: 0,
                     musteringOutInfo: null,
-                    selectedCashRolls: null
+                    selectedCashRolls: null,
+                    ageingCheckedThisTerm: false
                 }
             },
             
@@ -865,6 +866,7 @@
                         this.commissionAttemptedThisTerm = false;
                         this.promotionAttemptedThisTerm = false;
                         this.survivalAttemptedThisTerm = false;
+                        this.ageingCheckedThisTerm = false;
                     }
                     
                     // Check if commission, promotion, or survival was attempted THIS TERM
@@ -977,7 +979,9 @@
                            this.selectedCharacter.career &&
                            !this.selectedCharacter.commissioned &&
                            !this.commissionAttemptedThisTerm &&
-                           this.survivalAttemptedThisTerm;
+                           this.survivalAttemptedThisTerm &&
+                           !this.selectedCharacter.drafted && // Drafted characters cannot be commissioned
+                           !this.isCharacterInjured(); // Injured characters cannot be commissioned
                 },
                 
                 canAttemptPromotion() {
@@ -993,7 +997,8 @@
                            this.selectedCharacter.career &&
                            this.selectedCharacter.commissioned &&
                            !this.promotionAttemptedThisTerm &&
-                           this.survivalAttemptedThisTerm;
+                           this.survivalAttemptedThisTerm &&
+                           !this.isCharacterInjured(); // Injured characters cannot be promoted
                 },
                 
                 canRetire() {
@@ -1142,23 +1147,49 @@
                     this.loading = true;
                     this.error = '';
                     this.success = '';
-                    
                     try {
                         const response = await axios.post(`/api/character/${this.currentCharacterId}/skill`, {
                             table_choice: this.selectedSkillTable
                         });
-                        
                         if (response.data.success) {
                             const tableName = response.data.table_used.charAt(0).toUpperCase() + response.data.table_used.slice(1);
                             this.success = `Skill gained from ${tableName} table: ${response.data.skill_gained}`;
                             this.selectedSkillTable = '';
                             // Reload character data
                             await this.viewCharacter(this.currentCharacterId);
+                            // If all skills are now resolved, check for ageing
+                            if (this.selectedCharacter.skill_eligibility === 0 && !this.ageingCheckedThisTerm) {
+                                await this.checkAgeingAfterSkills();
+                            }
                         } else {
                             this.error = response.data.error || 'Skill resolution failed';
                         }
                     } catch (error) {
                         this.error = 'Failed to resolve skill: ' + error.message;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                // Add a new method for the ageing check after skills
+                async checkAgeingAfterSkills() {
+                    this.loading = true;
+                    try {
+                        const response = await axios.post(`/api/character/${this.currentCharacterId}/check-ageing-after-skills`);
+                        if (response.data.success && response.data.ageing_applicable) {
+                            // Show ageing results in the success message
+                            if (response.data.total_effects > 0) {
+                                this.success = `⏰ Ageing check: Age ${response.data.previous_age} → ${response.data.current_age}. Effects: ${response.data.ageing_effects.join(', ')}`;
+                            } else {
+                                this.success = `⏰ Ageing check: Age ${response.data.previous_age} → ${response.data.current_age}. No ageing effects.`;
+                            }
+                            // Reload character data to show updated career history
+                            await this.viewCharacter(this.currentCharacterId);
+                        }
+                        // Mark that we've checked ageing this term
+                        this.ageingCheckedThisTerm = true;
+                    } catch (error) {
+                        this.error = 'Failed to check ageing: ' + error.message;
                     } finally {
                         this.loading = false;
                     }
@@ -1218,29 +1249,24 @@
                             const benefits = response.data.mustering_out_benefits;
                             let resultsHtml = '<div class="mustering-results"><h6>🎖️ Mustering Out Results</h6>';
                             
-                            // Show cash roll details
-                            if (benefits.cash_roll_details && benefits.cash_roll_details.length > 0) {
-                                resultsHtml += '<div class="cash-rolls"><strong>Cash Rolls:</strong><ul>';
-                                benefits.cash_roll_details.forEach(roll => {
-                                    let rollText = `Roll ${roll.roll_number}: ${roll.base_roll}`;
-                                    if (roll.rank_bonus > 0) rollText += ` +${roll.rank_bonus} (rank)`;
-                                    if (roll.gambling_bonus > 0) rollText += ` +${roll.gambling_bonus} (gambling)`;
-                                    rollText += ` = ${roll.total_roll} → Cr${roll.amount.toLocaleString()}`;
-                                    resultsHtml += `<li>${rollText}</li>`;
-                                });
-                                resultsHtml += `</ul><strong>Total Cash: Cr${benefits.cash.toLocaleString()}</strong></div>`;
+                            // Show summary of results
+                            const cashAmount = benefits.cash || 0;
+                            const items = benefits.items || [];
+                            const characteristicBoosts = benefits.characteristic_boosts || {};
+                            
+                            if (cashAmount > 0) {
+                                resultsHtml += `<div><strong>Cash:</strong> Cr${cashAmount.toLocaleString()}</div>`;
                             }
                             
-                            // Show benefit roll details
-                            if (benefits.benefit_roll_details && benefits.benefit_roll_details.length > 0) {
-                                resultsHtml += '<div class="benefit-rolls"><strong>Benefit Rolls:</strong><ul>';
-                                benefits.benefit_roll_details.forEach(roll => {
-                                    let rollText = `Roll ${roll.roll_number}: ${roll.base_roll}`;
-                                    if (roll.rank_bonus > 0) rollText += ` +${roll.rank_bonus} (rank)`;
-                                    rollText += ` = ${roll.total_roll} → ${roll.benefit}`;
-                                    resultsHtml += `<li>${rollText}</li>`;
-                                });
-                                resultsHtml += '</ul></div>';
+                            if (items.length > 0) {
+                                resultsHtml += `<div><strong>Items:</strong> ${items.join(', ')}</div>`;
+                            }
+                            
+                            if (Object.keys(characteristicBoosts).length > 0) {
+                                const boostText = Object.entries(characteristicBoosts)
+                                    .map(([stat, boost]) => ` +${boost} ${stat.toUpperCase()}`)
+                                    .join(',');
+                                resultsHtml += `<div><strong>Characteristic Boosts:</strong>${boostText}</div>`;
                             }
                             
                             resultsHtml += '</div>';
@@ -1381,10 +1407,8 @@
                                           !this.selectedCharacter.commissioned &&
                                           ['Navy', 'Marines', 'Army', 'Merchants'].includes(this.selectedCharacter.career);
                     
-                    const needsPromotion = this.selectedCharacter && 
-                                         this.selectedCharacter.career &&
-                                         this.selectedCharacter.commissioned &&
-                                         ['Navy', 'Marines', 'Army', 'Merchants'].includes(this.selectedCharacter.career);
+                    // Check if promotion is actually available and needed this term
+                    const needsPromotion = this.canAttemptPromotion();
                     
                     // If commission is needed but not attempted, not ready for skills
                     if (needsCommission && !this.commissionAttemptedThisTerm) {
@@ -1419,7 +1443,11 @@
                     }
                     
                     // For non-injured characters, reenlistment only appears when all skills are resolved
-                    return this.selectedCharacter.skill_eligibility === 0;
+                    if (this.selectedCharacter.skill_eligibility > 0) {
+                        return false;
+                    }
+                    
+                    return true;
                 }
             }
         }).mount('#app');
