@@ -823,18 +823,24 @@
                     if (!this.selectedCharacter || !this.selectedCharacter.career_history) {
                         return { personal: false, service: false, advanced: false, education: false };
                     }
-                    
                     // Find the most recent skill resolution event to get available tables
                     const skillEvents = this.selectedCharacter.career_history.filter(event => 
                         event.event_type === 'skill_resolution' && event.available_tables
                     );
-                    
                     if (skillEvents.length > 0) {
                         return skillEvents[skillEvents.length - 1].available_tables;
                     }
-                    
-                    // Default fallback (shouldn't happen if character has career history)
-                    return { personal: true, service: true, advanced: true, education: false };
+                    // Fallback: use current education stat
+                    let edu = 0;
+                    if (this.selectedCharacter.characteristics && typeof this.selectedCharacter.characteristics.education === 'number') {
+                        edu = this.selectedCharacter.characteristics.education;
+                    }
+                    return {
+                        personal: true,
+                        service: true,
+                        advanced: true,
+                        education: edu >= 8
+                    };
                 },
                 
                 formatSkillsForDisplay() {
