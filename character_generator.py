@@ -107,30 +107,19 @@ class Character:
 
     def complete_term(self):
         """Complete a 4-year term of service"""
-        self.age += 4
-        self.terms_served += 1
+        # Note: Age and terms_served are now updated in attempt_reenlistment() 
+        # when the term is actually completed, not during term processing
+        # self.age += 4  # Removed - now handled in attempt_reenlistment()
+        # self.terms_served += 1  # Removed - now handled in attempt_reenlistment()
 
         # Update skill eligibility for term completion
         if self.career:
             self.update_skill_eligibility_for_term_completion(self.career)
 
+        # Note: Ageing checks are now handled elsewhere in the flow
         # Check for ageing effects
-        ageing_effects = self.check_ageing()
-        if ageing_effects:
-            self.ageing_log.append({
-                'term': self.terms_served,  # The term just completed
-                'age': self.age,
-                'effects': ageing_effects
-            })
-            # Log ageing event in generation log
-            self.log_event('ageing', {
-                'term': self.terms_served,
-                'age': self.age,
-                'effects': ageing_effects
-            })
-        # Add ageing effects to the latest term_log entry (if any)
-        if self.term_log and self.term_log[-1]['term'] == self.terms_served:
-            self.term_log[-1]['ageing'] = ageing_effects
+        # ageing_effects = self.check_ageing()
+        # ... rest of ageing logic commented out or moved
 
     def get_age(self):
         return self.age
@@ -1793,15 +1782,14 @@ def run_full_character_generation(death_rule_enabled=False, service_choice=None,
         elif survived == 'injured':
             if output_format == 'text':
                 print(f"\u26d4\ufe0f  Injured during term {c.terms_served + 1} in {career}. Must muster out immediately.")
-            # Update age and terms first
-            c.age += 2  # Only 2 years served
-            c.terms_served += 0.5
-            # Then add career term with correct ages
-            c.add_career_term(career, c.terms_served, partial_term=True)
+            # Note: Age and terms_served are now updated in attempt_reenlistment() 
+            # when the term is actually completed, not during injury handling
+            # Then add career term with current ages
+            c.add_career_term(career, c.terms_served + 1, partial_term=True)
             if output_format == 'text':
                 print(f"Final Age: {c.age}, Terms Served: {c.terms_served}")
             c.log_event('injury', {
-                'term': c.terms_served,
+                'term': c.terms_served + 1,
                 'career': career,
                 'age': c.age,
                 'partial_term': True

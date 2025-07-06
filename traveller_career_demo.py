@@ -7,7 +7,7 @@ import json
 from typing import Any, List
 
 # Import the character generation functions directly
-from character_generation_endpoints import (
+from character_generation_rules import (
     set_seed,
     generate_characteristic,
     create_character_record,
