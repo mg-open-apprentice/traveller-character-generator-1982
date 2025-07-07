@@ -1068,4 +1068,4 @@ if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
     
     # Run the Flask app
-    app.run(debug=debug_mode, host='0.0.0.0', port=5000) 
+    app.run(debug=debug_mode, host='0.0.0.0', port=int(os.environ.get('PORT', 5000))) 
