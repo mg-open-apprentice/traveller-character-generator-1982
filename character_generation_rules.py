@@ -112,7 +112,7 @@ def create_character_record() -> dict[str, Any]:
         "career_history": [],  # Track career progression and generation events
         "skill_eligibility": 0,  # Track available skill points
         "seed": 77,
-        "random_state": None  # Store random generator state for consistent sequences
+        "random_state": None,  # Store random generator state for consistent sequences
     }
 
 def roll_2d6(random_generator: random.Random) -> int:
@@ -281,21 +281,28 @@ def attempt_enlistment(random_generator: random.Random, character_record: dict[s
     # First term gets +2 eligibilities, subsequent terms get +1 (+2 for Scouts)
     current_terms = character_record.get("terms_served", 0)
     assigned_service = enlistment_result["assigned_service"]
-    
-    if current_terms == 0:
-        # First term - always +2 eligibilities
-        skill_eligibilities_granted = 2
-    else:
-        # Subsequent terms - +1 for most careers, +2 for Scouts
-        skill_eligibilities_granted = 2 if assigned_service == "Scouts" else 1
-    
-    character_record["skill_eligibility"] = character_record.get("skill_eligibility", 0) + skill_eligibilities_granted
-    enlistment_result["skill_eligibilities_granted"] = skill_eligibilities_granted
 
     # Add the enlistment attempt to the character's history
     character_record["career_history"].append(enlistment_result)
     
     return character_record
+
+def is_ready_for_skills(character_record: dict) -> bool:
+    """
+    Determine if the character is ready to roll skills for the current term.
+    - Scouts and Others: after survival
+    - Army/Navy/Marines/Merchants: after survival (skills can be rolled after survival)
+    """
+    service = character_record.get("career")
+    rank = character_record.get("rank", 0)
+    # Max ranks
+    max_ranks = {"Navy": 6, "Marines": 6, "Army": 6, "Merchants": 5}
+    if service in ["Scouts", "Others"]:
+        return True
+    if service in max_ranks:
+        # For all careers, skills can be rolled after survival
+        return True
+    return False
 
 def check_survival(random_generator: random.Random, character_record: dict[str, Any], death_rule_enabled: bool = False) -> dict[str, Any]:
     """
@@ -353,6 +360,11 @@ def check_survival(random_generator: random.Random, character_record: dict[str, 
     # Determine outcome
     if survived:
         outcome = "survived"
+        # Increment skill eligibility for new term (first term: +2, subsequent: +2 for Scouts, +1 for others)
+        current_terms = character_record.get("terms_served", 0)
+        career = character_record.get("career", "")
+        skill_eligibility = 2
+        character_record["skill_eligibility"] = skill_eligibility
     else:
         outcome = "died" if death_rule_enabled else "injured"
     
@@ -368,25 +380,12 @@ def check_survival(random_generator: random.Random, character_record: dict[str, 
         "success": survived,
         "outcome": outcome
     }
-    
-    # Calculate current term number
-    current_term = int(character_record.get("terms_served", 0)) + 1
-    
-    # Create term record
-    term_record = {
-        "term_number": current_term,
-        "survival": outcome
-    }
-    
-    # Initialize terms structure if it doesn't exist
-    if "terms" not in character_record:
-        character_record["terms"] = []
-    
-    # Add the term record to the character's terms
-    character_record["terms"].append(term_record)
+        
     
     # Add the survival check to the character's career history
     character_record["career_history"].append(survival_result)
+    # Add ready_for_skills flag
+    character_record["ready_for_skills"] = is_ready_for_skills(character_record)
     
     # Note: Age and terms_served are now updated in attempt_reenlistment() 
     # when the term is actually completed, not during survival check
@@ -499,7 +498,6 @@ def check_commission(random_generator: random.Random, character_record: dict[str
         character_record["commissioned"] = True
         character_record["rank"] = 1
         commission_result["outcome"] = "commissioned as officer"
-        
         # Grant +1 skill eligibility for successful commission
         character_record["skill_eligibility"] = character_record.get("skill_eligibility", 0) + 1
         commission_result["skill_eligibilities_granted"] = 1
@@ -514,6 +512,8 @@ def check_commission(random_generator: random.Random, character_record: dict[str
     
     # Add the commission check to the character's career history
     character_record["career_history"].append(commission_result)
+    # Add ready_for_skills flag
+    character_record["ready_for_skills"] = is_ready_for_skills(character_record)
     
     return character_record
 
@@ -646,10 +646,9 @@ def check_promotion(random_generator: random.Random, character_record: dict[str,
         new_rank = current_rank + 1
         character_record["rank"] = new_rank
         promotion_result["outcome"] = f"promoted to rank {new_rank}"
-        
         # Grant +1 skill eligibility for successful promotion
         character_record["skill_eligibility"] = character_record.get("skill_eligibility", 0) + 1
-        promotion_result["skill_eligibilities_granted"] = 1
+
         
         # Add promotion information to the current term
         if "terms" in character_record and character_record["terms"]:
@@ -666,6 +665,8 @@ def check_promotion(random_generator: random.Random, character_record: dict[str,
     
     # Add the promotion check to the character's career history
     character_record["career_history"].append(promotion_result)
+    # Add ready_for_skills flag
+    character_record["ready_for_skills"] = is_ready_for_skills(character_record)
     
     return character_record
 
@@ -731,7 +732,6 @@ def attempt_reenlistment(random_generator: random.Random, character_record: dict
             
             # Update age and terms_served for medical discharge
             # Medical discharge gets +1 term with +2 years aging (injured during term)
-            character_record["age"] = character_record.get("age", 18) + 2
             character_record["terms_served"] = character_record.get("terms_served", 0) + 1
             
             return character_record
@@ -793,16 +793,7 @@ def attempt_reenlistment(random_generator: random.Random, character_record: dict
     reenlistment_result["outcome"] = outcome
     reenlistment_result["status_text"] = status_text
     reenlistment_result["continue_career"] = continue_career
-    
-    # Grant skill eligibilities for the NEXT term if continuing career
-    if continue_career:
-        # Subsequent terms get +1 eligibility (+2 for Scouts)
-        skill_eligibilities_granted = 2 if career == "Scouts" else 1
-        character_record["skill_eligibility"] = character_record.get("skill_eligibility", 0) + skill_eligibilities_granted
-        reenlistment_result["skill_eligibilities_granted"] = skill_eligibilities_granted
-    else:
-        reenlistment_result["skill_eligibilities_granted"] = 0
-    
+       
     # Update the current term record with reenlistment information
     if "terms" in character_record and character_record["terms"]:
         current_term = character_record["terms"][-1]
@@ -832,13 +823,13 @@ def attempt_reenlistment(random_generator: random.Random, character_record: dict
     
     # Update age and terms_served for normal reenlistment (not medical discharge)
     # This happens after the reenlistment decision is made
-    if "terms" in character_record and character_record["terms"]:
-        current_term = character_record["terms"][-1]
-        if current_term.get("survival") != "injured":
-            # Normal term completion: all characters get +1 term and +4 years aging
-            character_record["age"] = character_record.get("age", 18) + 4
-            character_record["terms_served"] = character_record.get("terms_served", 0) + 1
-            # Ageing is now triggered after skills are resolved, not here
+    if continue_career:
+        # Normal term completion: all characters get +1 term when they successfully reenlist
+        character_record["terms_served"] = character_record.get("terms_served", 0) + 1
+        # Ageing is now triggered after skills are resolved, not here
+        
+        # Reset skill readiness for new term - character is ready for skills at start of new term
+        character_record["ready_for_skills"] = True
     
     return character_record
 
@@ -853,12 +844,13 @@ def check_ageing(random_generator: random.Random, character_record: dict[str, An
     Returns:
         Updated character record with ageing results
     """
+    # First, increment the character's age (this should happen before checking ageing effects)
+    previous_age = character_record.get("age", 18)
+    character_record["age"] = previous_age + 4  # 4 years per term
+    current_age = character_record["age"]
+    
     ageing_thresholds = [34, 38, 42, 46, 50, 54, 58, 62]
     advanced_ageing_start = 66
-    
-    # Get current age and previous age
-    current_age = character_record.get("age", 18)
-    previous_age = current_age - 4  # Assuming 4 years per term
     
     ageing_effects = []
     checks_performed = []
@@ -1043,19 +1035,10 @@ def resolve_skill(random_generator: random.Random, character_record: dict[str, A
                   table_choice: Optional[str] = None) -> dict[str, Any]:
     """
     Resolve a skill gain for a character
-    
-    Args:
-        random_generator: An instance of random.Random with the user's seed
-        character_record: The character's record
-        table_choice: The player's chosen skill table (optional)
-        
-    Returns:
-        Updated character record with the new skill and skill resolution event
     """
     # Validate required fields
     if "career" not in character_record:
         raise ValueError("Character record missing required field: 'career'")
-    
     # Check if character has skill eligibilities available
     skill_eligibility = character_record.get("skill_eligibility", 0)
     if skill_eligibility <= 0:
@@ -1233,6 +1216,21 @@ def resolve_skill(random_generator: random.Random, character_record: dict[str, A
             })
     
     return character_record
+
+def get_next_phase(character_record: dict) -> str:
+    """
+    Determine the next phase for the character after skills are exhausted.
+    Returns one of: 'skills', 'ageing', 'reenlistment'
+    """
+    skill_eligibility = character_record.get('skill_eligibility', 0)
+    age = character_record.get('age', 18)
+    # If there are still skills to roll, stay in skills phase
+    if skill_eligibility > 0:
+        return 'skills'
+    # Classic Traveller: Ageing starts at 34+
+    if age >= 34:
+        return 'ageing'
+    return 'reenlistment'
 
 def calculate_mustering_out_info(character_record: dict[str, Any]) -> dict[str, Any]:
     """
@@ -1536,6 +1534,20 @@ def _build_modifier_details(rank_bonus: int, gambling_bonus: int) -> List[str]:
     if gambling_bonus > 0:
         details.append(f"Gambling skill (+{gambling_bonus})")
     return details
+
+def increment_skill_eligibility_for_term(character_record: dict) -> None:
+    """
+    Increment skill eligibility at the start of a new term, before any skills are rolled.
+    - First term: +2 for all
+    - Subsequent terms: +2 for Scouts, +1 for others
+    """
+    current_terms = character_record.get("terms_served", 0)
+    career = character_record.get("career", "")
+    if current_terms == 0:
+        skill_eligibilities_granted = 2
+    else:
+        skill_eligibilities_granted = 2 if career == "Scouts" else 1
+    character_record["skill_eligibility"] = character_record.get("skill_eligibility", 0) + skill_eligibilities_granted
 
 if __name__ == "__main__":
     """

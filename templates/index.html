@@ -1,1456 +1,1176 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classic Traveller Character Generator</title>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         * {
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            color: #333;
-            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            height: 100vh;
+            overflow: hidden;
+            line-height: 1.4;
         }
         
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+        .terminal-container {
+            display: grid;
+            grid-template-areas: 
+                "header header"
+                "sidebar right-top"
+                "sidebar right-middle"
+                "sidebar right-bottom";
+            grid-template-columns: 300px 1fr;
+            grid-template-rows: auto 1fr 1fr 1fr;
+            height: 100vh;
+            gap: 2px;
+            background: #000;
+        }
+        
+        .panel {
+            background: #000;
+            border: 1px solid #0f0;
+            padding: 15px;
+            overflow-y: auto;
         }
         
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+            grid-area: header;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            font-family: 'Orbitron', 'Courier New', monospace;
+            font-size: 24px;
+            font-weight: 900;
+            padding: 10px;
+            border-bottom: 2px solid #0f0;
+            letter-spacing: 2px;
         }
         
-        .header h1 {
-            margin: 0;
-            color: #1e3c72;
-            font-size: 2.5em;
+        .sidebar {
+            grid-area: sidebar;
+            border-right: 2px solid #0f0;
         }
         
-        .nav-buttons {
-            margin-top: 15px;
+        .right-top {
+            grid-area: right-top;
         }
         
-        .btn {
-            background: #2a5298;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 0 10px;
-            transition: all 0.3s;
+        .right-middle {
+            grid-area: right-middle;
+            border-top: 2px solid #0f0;
         }
         
-        .btn:hover {
-            background: #1e3c72;
-            transform: translateY(-2px);
-        }
-        
-        .btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .btn.secondary {
-            background: #6c757d;
-        }
-        
-        .btn.secondary:hover {
-            background: #545b62;
-        }
-        
-        .btn.danger {
-            background: #dc3545;
-        }
-        
-        .btn.danger:hover {
-            background: #c82333;
+        .right-bottom {
+            grid-area: right-bottom;
+            border-top: 2px solid #0f0;
         }
         
         .card {
-            background: white;
-            border-radius: 10px;
+            border: 1px solid #0f0;
+            margin: 10px 0;
             padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            font-size: 48px;
+            font-weight: bold;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
-        .card h2 {
-            margin-top: 0;
-            color: #1e3c72;
-            border-bottom: 2px solid #eee;
+        .sidebar-content {
+            padding: 0;
+        }
+        
+        .section {
+            border-bottom: 1px solid #666;
+            margin-bottom: 10px;
             padding-bottom: 10px;
         }
         
-        .character-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+        .section:last-child {
+            border-bottom: none;
         }
         
-        .character-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s;
-        }
-        
-        .character-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .character-name {
-            font-size: 1.5em;
+        .section-title {
+            color: #fff;
+            font-size: 14px;
             font-weight: bold;
-            color: #1e3c72;
             margin-bottom: 10px;
+            text-transform: uppercase;
+            text-align: center;
+            border-bottom: 1px solid #666;
+            padding-bottom: 5px;
         }
         
-        .character-info {
-            margin-bottom: 15px;
-        }
-        
-        .character-info span {
-            display: inline-block;
-            margin-right: 15px;
-            color: #666;
-        }
-        
-        .character-info .upp {
+        .btn {
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            padding: 8px 16px;
+            margin: 3px 0;
+            width: 100%;
+            cursor: pointer;
             font-family: 'Courier New', monospace;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #0f0;
+            color: #000;
+        }
+        
+        .character-record {
+            color: #0f0;
+            font-size: 14px;
+        }
+        
+        .character-header {
+            margin-bottom: 15px;
+            border-bottom: 1px solid #666;
+            padding-bottom: 10px;
+        }
+        
+        .character-name-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .title-rank-name {
             font-weight: bold;
-            color: #1e3c72;
-            font-size: 1.1em;
         }
         
-        .character-info .skills-display {
-            color: #666;
-            font-size: 0.9em;
+        .upp-age-terms {
+            font-family: 'Courier New', monospace;
         }
         
-        .characteristics {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
+        .character-section {
+            margin-bottom: 10px;
+            padding: 5px 0;
+        }
+        
+        .section-label {
+            color: #fff;
+            font-weight: bold;
+            border-bottom: 1px solid #333;
+            padding-bottom: 3px;
+        }
+        
+        .event-record {
+            color: #0f0;
+            font-size: 14px;
+        }
+        
+        .event-section {
+            margin-bottom: 10px;
+            padding: 5px 0;
+        }
+        
+        .event-label {
+            color: #fff;
+            font-weight: bold;
+            border-bottom: 1px solid #333;
+            padding-bottom: 3px;
+        }
+        
+        .term-record {
+            color: #0f0;
+            font-size: 14px;
+        }
+        
+        .term-header {
+            margin-bottom: 15px;
+            border-bottom: 1px solid #666;
+            padding-bottom: 10px;
+        }
+        
+        .term-title {
+            color: #fff;
+            font-weight: bold;
+        }
+        
+        .term-section {
             margin-bottom: 20px;
         }
         
-        .characteristic {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
-            text-align: center;
+        .term-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            padding: 2px 0;
         }
         
-        .characteristic strong {
-            display: block;
-            color: #1e3c72;
-            font-size: 1.2em;
+        .term-action {
+            color: #fff;
         }
         
-        .skills {
+        .term-outcome {
+            color: #666;
+            font-style: italic;
+        }
+        
+        .muster-header {
+            border-top: 1px solid #666;
+            padding-top: 10px;
+        }
+        
+        .muster-title {
+            color: #fff;
+            font-weight: bold;
+            border-bottom: 1px solid #333;
+            padding-bottom: 3px;
+        }
+        
+        .muster-section {
             margin-top: 15px;
         }
         
-        .skill-item {
-            background: #e9ecef;
-            padding: 5px 10px;
-            border-radius: 3px;
-            margin: 5px 5px 5px 0;
-            display: inline-block;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #1e3c72;
-        }
-        
-        .form-control {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-        }
-        
-        .form-control:focus {
-            outline: none;
-            border-color: #2a5298;
-        }
-        
-        select.form-control {
-            cursor: pointer;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 20px;
-            font-size: 18px;
-            color: #666;
-        }
-        
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .success {
-            background: #d4edda;
-            color: #155724;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        
-        .mustering-results {
-            background-color: #fff8dc;
-            border: 2px solid #ffa500;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 10px 0;
-        }
-        
-        .mustering-results h6 {
-            color: #b8860b;
-            margin-top: 0;
-            margin-bottom: 15px;
-        }
-        
-        .cash-rolls, .benefit-rolls {
-            margin-bottom: 15px;
-        }
-        
-        .cash-rolls ul, .benefit-rolls ul {
-            margin: 5px 0;
-            padding-left: 20px;
-        }
-        
-        .cash-rolls li, .benefit-rolls li {
-            margin-bottom: 3px;
-            font-family: "Courier New", monospace;
-            color: #333;
-        }
-        
-        .career-history {
-            margin-top: 20px;
-        }
-        
-        .career-event {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-            border-left: 4px solid #2a5298;
-        }
-        
-        .career-event strong {
-            color: #1e3c72;
-        }
-        
-        .generation-controls {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        
-        .generation-controls h3 {
-            margin-top: 0;
-            color: #1e3c72;
-        }
-        
-        .mustering-benefits {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
-        .benefit-item {
-            padding: 10px;
-            background: rgba(255, 165, 0, 0.1);
-            border-radius: 5px;
-            border-left: 3px solid #ffa500;
-        }
-        
-        .benefit-item strong {
-            color: #cc8400;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        @media (max-width: 768px) {
-            .characteristics {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .nav-buttons {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }
-            
-            .btn {
-                margin: 0;
-            }
+        .muster-item {
+            color: #fff;
+            margin-bottom: 8px;
+            padding: 3px 0;
         }
     </style>
 </head>
 <body>
-    <div id="app">
-        <div class="container">
-            <div class="header">
-                <h1>⭐ Classic Traveller Character Generator</h1>
-                <div class="nav-buttons">
-                    <button class="btn" @click="showPage('home')">Home</button>
-                    <button class="btn" @click="showPage('characters')">Characters</button>
-                    <button class="btn" @click="showPage('new-character')">New Character</button>
+    <div class="terminal-container">
+        <!-- Header -->
+        <div class="header">
+            Classic Traveller Character Generator
+        </div>
+        
+        <!-- Left Sidebar -->
+        <div class="panel sidebar">
+            <div class="sidebar-content">
+                <!-- Add this to the sidebar, e.g. at the top of sidebar-content -->
+                <div class="section" id="sidebar-character-title-section">
+                    <span id="sidebar-rank-title"></span><span id="sidebar-name-left"></span>
+                </div>
+                <!-- Create Character -->
+                <div class="section">
+                    <button class="btn" id="create-character-btn">Create Character</button>
+                </div>
+                
+                <!-- Characteristics -->
+                <div class="section" id="characteristics-section">
+                    <div class="section-title">Characteristics</div>
+                    <button class="btn" id="strength-btn">Strength</button>
+                    <button class="btn" id="dexterity-btn">Dexterity</button>
+                    <button class="btn" id="endurance-btn">Endurance</button>
+                    <button class="btn" id="intelligence-btn">Intelligence</button>
+                    <button class="btn" id="education-btn">Education</button>
+                    <button class="btn" id="social-btn">Social</button>
+                </div>
+                
+                <!-- Enlistment -->
+                <div class="section">
+                    <div class="section-title">Enlistment</div>
+                    <button class="btn" id="navy-btn">Navy</button>
+                    <button class="btn" id="marines-btn">Marines</button>
+                    <button class="btn" id="army-btn">Army</button>
+                    <button class="btn" id="scouts-btn">Scouts</button>
+                    <button class="btn" id="merchants-btn">Merchants</button>
+                    <button class="btn" id="others-btn">Others</button>
+                </div>
+                
+                <!-- Term -->
+                <div class="section">
+                    <div class="section-title">Term</div>
+                    <button class="btn" id="survival-btn">Survival</button>
+                    <button class="btn" id="commission-btn">Commission</button>
+                    <button class="btn" id="promotion-btn">Promotion</button>
+                </div>
+                
+                <!-- Skills -->
+                <div class="section">
+                    <div class="section-title">Skills</div>
+                    <button class="btn" id="personal-btn">Personal</button>
+                    <button class="btn" id="service-btn">Service</button>
+                    <button class="btn" id="advanced-btn">Advanced</button>
+                    <button class="btn" id="education-skill-btn">Education</button>
+                </div>
+                
+                <!-- Ageing & Reenlist -->
+                <div class="section">
+                    <button class="btn" id="ageing-btn" style="display: none;">Ageing</button>
+                    <button class="btn" id="reenlist-btn">Reenlist</button>
+                </div>
+                
+                <!-- Mustering Out -->
+                <div class="section">
+                    <div class="section-title">Mustering Out</div>
+                    <button class="btn" id="benefits-btn">Benefits</button>
+                </div>
+                
+                <!-- Delete Character -->
+                <div class="section">
+                    <button class="btn" id="delete-character-btn">Delete Character</button>
                 </div>
             </div>
-            
-            <!-- Home Page -->
-            <div v-if="currentPage === 'home'" class="card">
-                <h2>Welcome to the Classic Traveller Character Generator</h2>
-                <p>Generate characters for the Classic Traveller roleplaying game using the original rules and mechanics.</p>
-                <p>Features:</p>
-                <ul>
-                    <li>Generate characteristics using 2D6 rolls</li>
-                    <li>Enlist in various services (Navy, Marines, Army, Scouts, Merchants, Others)</li>
-                    <li>Complete career progression with survival, commission, and promotion checks</li>
-                    <li>Skill acquisition through career service</li>
-                    <li>Reenlistment options to continue careers</li>
-                    <li>Complete character record tracking</li>
-                </ul>
-                <div class="button-group">
-                    <button class="btn" @click="showPage('characters')">View Characters</button>
-                    <button class="btn" @click="showPage('new-character')">Create New Character</button>
+        </div>
+        
+        <!-- Right Top -->
+        <div class="panel right-top">
+            <div class="character-record" id="character-record">
+                <div class="character-header">
+                    <div class="character-name-line">
+                        <span id="char-rank" style="margin-right: 6px;"></span>
+                        <span class="title-rank-name" id="char-name">Title, Rank, Name</span>
+                        <span id="char-service" style="margin-left: 10px;">Service</span>
+                        <span class="upp-profile" style="font-family:'Courier New',monospace;">
+                            <span id="upp-label">UPP</span>
+                            <span id="upp-string">______</span>
+                            <span class="upp-age" id="char-age">Age</span>
+                            <span class="upp-terms" id="char-terms">Terms</span>
+                        </span>
+                        <span id="char-rank-number" style="margin-left: 12px;"></span>
+                        <span id="top-skill-eligibility" style="margin-left: 12px; color: #0ff; font-size: 16px; font-weight: bold;"></span>
+                    </div>
+                </div>
+                
+                <div class="character-section">
+                    <div class="section-label">Skills</div>
+                </div>
+                
+                <div class="character-section">
+                    <div class="section-label">Mustering Out</div>
+                </div>
+                
+                <div class="character-section">
+                    <div class="section-label">Credits</div>
+                </div>
+                
+                <div class="character-section">
+                    <div class="section-label">Retirement Income</div>
+                </div>
+                
+                <div class="character-section">
+                    <div class="section-label">Possessions</div>
+                </div>
+                
+                <div class="character-section">
+                    <div class="section-label">Benefits</div>
                 </div>
             </div>
-            
-            <!-- Characters List Page -->
-            <div v-if="currentPage === 'characters'">
-                <div class="card">
-                    <h2>Character List</h2>
-                    <button class="btn" @click="loadCharacters">Refresh List</button>
-                    <button class="btn" @click="showPage('new-character')">Create New Character</button>
+        </div>
+        
+        <!-- Right Middle -->
+        <div class="panel right-middle">
+            <div class="event-record">
+                <div class="event-section">
+                    <div class="event-label">Conditions</div>
                 </div>
                 
-                <div v-if="loading" class="loading">Loading characters...</div>
-                <div v-if="error" class="error">[[ error ]]</div>
-                
-                <div v-if="!loading && characters.length === 0" class="card">
-                    <p>No characters found. Create your first character!</p>
-                    <button class="btn" @click="showPage('new-character')">Create Character</button>
+                <div class="event-section">
+                    <div class="event-label">Test</div>
                 </div>
                 
-                <div v-if="!loading && characters.length > 0" class="character-grid">
-                    <div v-for="character in characters" :key="character.character_id" class="character-card">
-                        <div class="character-name">[[ character.name ]]</div>
-                        <div class="character-info">
-                            <span><strong>Age:</strong> [[ character.age ]]</span>
-                            <span><strong>Terms:</strong> [[ character.terms_served ]]</span>
-                            <span><strong>Career:</strong> [[ character.career || 'None' ]]</span>
-                        </div>
-                        <div class="button-group">
-                            <button class="btn" @click="viewCharacter(character.character_id)">View</button>
-                            <button class="btn danger" @click="deleteCharacter(character.character_id)">Delete</button>
-                        </div>
-                    </div>
+                <div class="event-section">
+                    <div class="event-label">Target</div>
+                </div>
+                
+                <div class="event-section">
+                    <div class="event-label">Roll</div>
+                </div>
+                
+                <div class="event-section">
+                    <div class="event-label">Modifiers</div>
+                </div>
+                
+                <div class="event-section">
+                    <div class="event-label">Outcome</div>
                 </div>
             </div>
-            
-            <!-- New Character Page -->
-            <div v-if="currentPage === 'new-character'">
-                <div class="card">
-                    <h2>Create New Character</h2>
-                    <div class="form-group">
-                        <label for="seed">Seed (optional - for reproducible results):</label>
-                        <input type="number" id="seed" v-model.number="newCharacter.seed" class="form-control" placeholder="Leave empty for random">
-                    </div>
-                    <button class="btn" @click="initializeCharacter" :disabled="loading">
-                        [[ loading ? 'Creating...' : 'Initialize Character' ]]
-                    </button>
-                </div>
-                
-                <div v-if="error" class="error">[[ error ]]</div>
-                <div v-if="success" class="success">[[ success ]]</div>
-            </div>
-            
-            <!-- Character Detail Page -->
-            <div v-if="currentPage === 'character-detail' && selectedCharacter">
-                <div class="card">
-                    <h2>[[ getDisplayName() ]]</h2>
-                    <div class="character-info">
-                        <span><strong>Age:</strong> [[ selectedCharacter.age ]]</span>
-                        <span><strong>Terms:</strong> [[ formatTermsDisplay() ]]</span>
-                        <span><strong>Career:</strong> [[ selectedCharacter.career || 'None' ]]</span>
-                        <span v-if="selectedCharacter.rank !== undefined"><strong>Rank:</strong> [[ selectedCharacter.rank ]]</span>
-                        <span v-if="hasAllCharacteristics()" class="upp"><strong>UPP:</strong> [[ generateUPP() ]]</span>
-                        <span><strong>Seed:</strong> [[ selectedCharacter.seed ]]</span>
+        </div>
+        
+        <!-- Right Bottom -->
+        <div class="panel right-bottom">
+            <div class="term-record">
+                <!-- Current Term Layout -->
+                <div class="term-display">
+                    <div class="term-header">
+                        <div class="term-title">Current Term</div>
                     </div>
                     
-                    <div v-if="hasSkills()" class="character-info">
-                        <div class="skills-display">
-                            <strong>Skills:</strong> [[ formatSkillsForDisplay() ]]
+                    <div class="term-section">
+                        <div class="term-item">
+                            <span class="term-action">Survival</span>
+                            <span class="term-outcome">&lt;outcome&gt;</span>
                         </div>
-                    </div>
-                    
-                    <!-- Mustering Out Benefits -->
-                    <div v-if="selectedCharacter.mustering_out_benefits" class="card" style="margin-top: 20px; background: #f0f8ff; border-left: 4px solid #ffa500;">
-                        <h3>🎖️ Mustering Out Benefits</h3>
-                        <div class="mustering-benefits">
-                            <div v-if="selectedCharacter.mustering_out_benefits.cash" class="benefit-item">
-                                <strong>💰 Cash:</strong> Cr[[ selectedCharacter.mustering_out_benefits.cash.toLocaleString() ]]
-                            </div>
-                            <div v-if="selectedCharacter.mustering_out_benefits.items && selectedCharacter.mustering_out_benefits.items.length > 0" class="benefit-item">
-                                <strong>🎁 Items:</strong> [[ selectedCharacter.mustering_out_benefits.items.join(', ') ]]
-                            </div>
-                            <div v-if="selectedCharacter.mustering_out_benefits.characteristic_boosts && Object.keys(selectedCharacter.mustering_out_benefits.characteristic_boosts).length > 0" class="benefit-item">
-                                <strong>📈 Characteristic Boosts:</strong> 
-                                <span v-for="(boost, char) in selectedCharacter.mustering_out_benefits.characteristic_boosts" :key="char">
-                                    [[ char.charAt(0).toUpperCase() + char.slice(1) ]] +[[ boost ]]
-                                </span>
-                            </div>
+                        <div class="term-item">
+                            <span class="term-action">Commission</span>
+                            <span class="term-outcome">&lt;outcome&gt;</span>
                         </div>
-                    </div>
-                    
-                    <div class="button-group">
-                        <button class="btn" @click="showPage('characters')">Back to List</button>
-                        <button class="btn danger" @click="deleteCharacter(selectedCharacter.character_id || currentCharacterId)">Delete Character</button>
-                    </div>
-                </div>
-                
-                <!-- Characteristics Generation -->
-                <div class="card" v-if="!hasAllCharacteristics()">
-                    <h2>Characteristics</h2>
-                    <div class="characteristics">
-                        <div v-for="(value, name) in selectedCharacter.characteristics" :key="name" class="characteristic">
-                            <strong>[[ value ]]</strong>
-                            <span>[[ name.charAt(0).toUpperCase() + name.slice(1) ]]</span>
+                        <div class="term-item">
+                            <span class="term-action">Promotion</span>
+                            <span class="term-outcome">&lt;outcome&gt;</span>
                         </div>
-                    </div>
-                    
-                    <div class="button-group">
-                        <button v-for="charName in missingCharacteristics()" 
-                                :key="charName" 
-                                class="btn" 
-                                @click="generateCharacteristic(charName)"
-                                :disabled="loading">
-                            [[ loading ? 'Rolling...' : `Roll ${charName.charAt(0).toUpperCase() + charName.slice(1)}` ]]
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Character Generation Controls -->
-                <div class="generation-controls" v-if="hasAllCharacteristics()">
-                    <h3>Character Generation</h3>
-                    
-                    <!-- Enlistment -->
-                    <div v-if="!selectedCharacter.career">
-                        <h4>Enlistment</h4>
-                        <div class="form-group">
-                            <label for="service">Choose Service:</label>
-                            <select id="service" v-model="selectedService" class="form-control">
-                                <option value="">Select a service</option>
-                                <option v-for="service in availableServices" :key="service" :value="service">[[ service ]]</option>
-                            </select>
+                        <div class="term-item">
+                            <span class="term-action">Skills</span>
+                            <span class="term-outcome">&lt;outcomes&gt;</span>
                         </div>
-                        <button class="btn" @click="attemptEnlistment" :disabled="!selectedService || loading">
-                            [[ loading ? 'Enlisting...' : 'Attempt Enlistment' ]]
-                        </button>
-                    </div>
-                    
-                    <!-- Career Progression -->
-                    <div v-if="selectedCharacter.career">
-                        <h4>Career Progression</h4>
-                        <div class="button-group">
-                            <button class="btn" @click="checkSurvival" :disabled="loading" v-if="canAttemptSurvival()">
-                                [[ loading ? 'Checking...' : 'Survival Check' ]]
-                            </button>
-                            <button class="btn" @click="checkCommission" :disabled="loading" v-if="canAttemptCommission()">
-                                [[ loading ? 'Checking...' : 'Commission' ]]
-                            </button>
-                            <button class="btn" @click="checkPromotion" :disabled="loading" v-if="canAttemptPromotion()">
-                                [[ loading ? 'Checking...' : 'Promotion' ]]
-                            </button>
+                        <div class="term-item">
+                            <span class="term-action">Ageing</span>
+                            <span class="term-outcome">&lt;outcomes&gt;</span>
                         </div>
-                        
-                        <!-- Skill Resolution -->
-                        <div v-if="canResolveSkills()">
-                            <h5>Skill Resolution ([[ selectedCharacter.skill_eligibility ]] available)</h5>
-                            <div class="form-group">
-                                <label for="skillTable">Choose Skill Table:</label>
-                                <select id="skillTable" v-model="selectedSkillTable" class="form-control">
-                                    <option value="">Select a skill table</option>
-                                    <option value="personal" v-if="getAvailableTables().personal">Personal</option>
-                                    <option value="service" v-if="getAvailableTables().service">Service</option>
-                                    <option value="advanced" v-if="getAvailableTables().advanced">Advanced</option>
-                                    <option value="education" v-if="getAvailableTables().education">Education</option>
-                                </select>
-                            </div>
-                            <button class="btn" @click="resolveSkill" :disabled="loading || !selectedSkillTable">
-                                [[ loading ? 'Resolving...' : 'Resolve Skill' ]]
-                            </button>
-                        </div>
-                        
-
-                        
-                        <div v-if="needsReenlistmentDecision()" style="margin-top: 15px;">
-                            <h5>End of Term Decision</h5>
-                            <div class="form-group">
-                                <div v-if="isCharacterInjured()">
-                                    <label for="reenlistmentChoice">Medical Discharge Required:</label>
-                                    <select id="reenlistmentChoice" v-model="selectedReenlistmentChoice" class="form-control">
-                                        <option value="">Select to confirm</option>
-                                        <option value="reenlist">Medical Discharge (injured - cannot continue)</option>
-                                    </select>
-                                    <small class="form-text text-muted">Your character was injured during the survival check and must be medically discharged.</small>
-                                </div>
-                                <div v-else>
-                                    <label for="reenlistmentChoice">Choose your preference:</label>
-                                    <select id="reenlistmentChoice" v-model="selectedReenlistmentChoice" class="form-control">
-                                        <option value="">Select an option</option>
-                                        <option value="reenlist">Reenlist (continue service)</option>
-                                        <option value="discharge" v-if="selectedCharacter.terms_served < 5">Leave (end service)</option>
-                                        <option value="retire" v-if="selectedCharacter.terms_served >= 5">Retire (end service)</option>
-                                    </select>
-                                    <small class="form-text text-muted">
-                                        <span v-if="selectedCharacter.terms_served < 5">After term 5, you must retire instead of leave.</span>
-                                        <span v-if="selectedCharacter.terms_served >= 5">You can only retire after completing 5+ terms.</span>
-                                        Rolling 12 means mandatory retention regardless of choice.
-                                    </small>
-                                </div>
-                            </div>
-                            <button class="btn" @click="attemptReenlistment" :disabled="loading || !selectedReenlistmentChoice">
-                                [[ loading ? 'Processing...' : 'Submit Decision' ]]
-                            </button>
-                        </div>
-                        
-                        <!-- Mustering Out -->
-                        <div v-if="musteringOutInfo" style="margin-top: 20px; padding: 15px; border: 2px solid #ffa500; border-radius: 5px; background-color: #fff8dc;">
-                            <h5>🎖️ Mustering Out</h5>
-                            <p>Your character has completed their military service and is eligible for mustering out benefits!</p>
-                            <div class="mustering-info">
-                                <p><strong>Career:</strong> [[ musteringOutInfo.career ]]</p>
-                                <p><strong>Terms Served:</strong> [[ musteringOutInfo.terms_served ]]</p>
-                                <p><strong>Rank:</strong> [[ musteringOutInfo.rank ]] [[ musteringOutInfo.rank_bonus > 0 ? '(+1 DM for rank 5+)' : '' ]]</p>
-                                <p><strong>Total Mustering Out Rolls:</strong> [[ musteringOutInfo.total_rolls ]]</p>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="cashRolls">Cash vs Benefits Allocation:</label>
-                                <select id="cashRolls" v-model="selectedCashRolls" class="form-control">
-                                    <option v-for="option in getCashRollOptions()" :key="option.value" :value="option.value">
-                                        [[ option.label ]]
-                                    </option>
-                                </select>
-                                <small class="form-text text-muted">You can take up to 3 rolls as cash, the rest must be benefits.</small>
-                            </div>
-                            
-                            <div v-if="selectedCharacter.skills && selectedCharacter.skills.Gambling" class="form-group">
-                                <p><strong>Gambling Skill:</strong> [[ selectedCharacter.skills.Gambling ]] (+[[ selectedCharacter.skills.Gambling ]] DM to cash rolls)</p>
-                            </div>
-                            
-                            <button class="btn" @click="performMusteringOut" :disabled="loading || selectedCashRolls === null" style="background-color: #ffa500; color: white;">
-                                [[ loading ? 'Processing...' : 'Muster Out' ]]
-                            </button>
+                        <div class="term-item">
+                            <span class="term-action">Reenlistment</span>
+                            <span class="term-outcome">&lt;outcome&gt;</span>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Career History -->
-                <div class="card" v-if="selectedCharacter.career_history && selectedCharacter.career_history.length > 0">
-                    <h2>Career History</h2>
-                    <div class="career-history">
-                        <div v-for="(event, index) in selectedCharacter.career_history" :key="index" class="career-event">
-                            <strong>[[ event.event_type.replace('_', ' ').toUpperCase() ]]</strong>
-                            <div v-if="event.outcome">[[ event.outcome ]]</div>
-                            <div v-if="event.skill_gained">Skill gained from [[ event.table_choice ]] table: [[ event.skill_gained ]]</div>
-                            <div v-if="event.roll">Roll: [[ event.roll ]] (Target: [[ event.target ]])</div>
-                            <div v-if="event.event_type === 'ageing_check' && event.ageing_effects && event.ageing_effects.length > 0">
-                                <span style="color: #d32f2f;">⏰ Ageing Effects: [[ event.ageing_effects.join(', ') ]]</span>
-                            </div>
-                        </div>
+                <!-- Alternative: Mustering Out Layout -->
+                <div class="muster-display" style="display: none;">
+                    <div class="muster-header">
+                        <div class="muster-title">Mustering Out</div>
+                    </div>
+                    
+                    <div class="muster-section">
+                        <div class="muster-item">Cash</div>
+                        <div class="muster-item">Pension</div>
+                        <div class="muster-item">Acquisitions</div>
+                        <div class="muster-item">Benefits</div>
                     </div>
                 </div>
-                
-                <div v-if="error" class="error">[[ error ]]</div>
-                <div v-if="success" class="success" v-html="success"></div>
             </div>
         </div>
     </div>
-
     <script>
-        const { createApp } = Vue;
-        
-        createApp({
-            delimiters: ['[[', ']]'],
-            
-            data() {
-                return {
-                    currentPage: 'home',
-                    characters: [],
-                    selectedCharacter: null,
-                    currentCharacterId: null,
-                    availableServices: ['Navy', 'Marines', 'Army', 'Scouts', 'Merchants', 'Others'],
-                    selectedService: '',
-                    selectedSkillTable: '',
-                    selectedReenlistmentChoice: '',
-                    loading: false,
-                    error: '',
-                    success: '',
-                    newCharacter: {
-                        seed: null
-                    },
-                    commissionAttemptedThisTerm: false,
-                    promotionAttemptedThisTerm: false,
-                    survivalAttemptedThisTerm: false,
-                    currentTermNumber: 0,
-                    musteringOutInfo: null,
-                    selectedCashRolls: null,
-                    ageingCheckedThisTerm: false
-                }
-            },
-            
-            mounted() {
-                // Check URL for routing
-                const path = window.location.pathname;
-                if (path === '/characters') {
-                    this.showPage('characters');
-                } else if (path === '/characters/new') {
-                    this.showPage('new-character');
-                } else if (path.startsWith('/characters/')) {
-                    const characterId = path.split('/')[2];
-                    this.viewCharacter(characterId);
-                }
-            },
-            
-            methods: {
-                showPage(page) {
-                    this.currentPage = page;
-                    this.error = '';
-                    this.success = '';
-                    
-                    // Update URL
-                    const urls = {
-                        'home': '/',
-                        'characters': '/characters',
-                        'new-character': '/characters/new',
-                        'character-detail': `/characters/${this.currentCharacterId}`
-                    };
-                    
-                    if (urls[page]) {
-                        window.history.pushState(null, '', urls[page]);
-                    }
-                    
-                    if (page === 'characters') {
-                        this.loadCharacters();
-                    }
-                },
-                
-                async loadCharacters() {
-                    this.loading = true;
-                    this.error = '';
-                    
-                    try {
-                        const response = await axios.get('/api/characters');
-                        if (response.data.success) {
-                            this.characters = response.data.characters;
-                        } else {
-                            this.error = response.data.error || 'Failed to load characters';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to load characters: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async initializeCharacter() {
-                    this.loading = true;
-                    this.error = '';
-                    this.success = '';
-                    
-                    try {
-                        const data = {};
-                        if (this.newCharacter.seed) {
-                            data.seed = this.newCharacter.seed;
-                        }
-                        
-                        const response = await axios.post('/api/character/initialize', data);
-                        if (response.data.success) {
-                            this.newCharacter.seed = null;
-                            
-                            // Navigate to character detail immediately
-                            this.viewCharacter(response.data.character_id);
-                        } else {
-                            this.error = response.data.error || 'Failed to create character';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to create character: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async viewCharacter(characterId) {
-                    this.loading = true;
-                    this.error = '';
-                    this.currentCharacterId = characterId;
-                    
-                    try {
-                        const response = await axios.get(`/api/character/${characterId}`);
-                        if (response.data.success) {
-                            this.selectedCharacter = response.data.character;
-                            this.updateTermTracking();
-                            this.showPage('character-detail');
-                        } else {
-                            this.error = response.data.error || 'Failed to load character';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to load character: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async deleteCharacter(characterId) {
-                    if (!confirm('Are you sure you want to delete this character?')) {
-                        return;
-                    }
-                    
-                    this.loading = true;
-                    this.error = '';
-                    
-                    try {
-                        const response = await axios.delete(`/api/character/${characterId}`);
-                        if (response.data.success) {
-                            this.success = 'Character deleted successfully!';
-                            
-                            // If we're on the character detail page, go back to characters list
-                            if (this.currentPage === 'character-detail') {
-                                setTimeout(() => {
-                                    this.showPage('characters');
-                                }, 1000);
-                            } else {
-                                // Refresh the characters list
-                                this.loadCharacters();
-                            }
-                        } else {
-                            this.error = response.data.error || 'Failed to delete character';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to delete character: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                hasAllCharacteristics() {
-                    if (!this.selectedCharacter || !this.selectedCharacter.characteristics) {
-                        return false;
-                    }
-                    const required = ['strength', 'dexterity', 'endurance', 'intelligence', 'education', 'social'];
-                    return required.every(char => this.selectedCharacter.characteristics.hasOwnProperty(char));
-                },
-                
-                missingCharacteristics() {
-                    if (!this.selectedCharacter || !this.selectedCharacter.characteristics) {
-                        return ['strength', 'dexterity', 'endurance', 'intelligence', 'education', 'social'];
-                    }
-                    const required = ['strength', 'dexterity', 'endurance', 'intelligence', 'education', 'social'];
-                    return required.filter(char => !this.selectedCharacter.characteristics.hasOwnProperty(char));
-                },
-                
-                generateUPP() {
-                    if (!this.hasAllCharacteristics()) {
-                        return '';
-                    }
-                    
-                    const chars = this.selectedCharacter.characteristics;
-                    const hexValues = [
-                        chars.strength,
-                        chars.dexterity,
-                        chars.endurance,
-                        chars.intelligence,
-                        chars.education,
-                        chars.social
-                    ].map(val => val > 9 ? String.fromCharCode(65 + val - 10) : val.toString());
-                    
-                    return hexValues.join('');
-                },
-                
-                hasSkills() {
-                    return this.selectedCharacter && 
-                           this.selectedCharacter.skills && 
-                           Object.keys(this.selectedCharacter.skills).length > 0;
-                },
-                
-                getAvailableTables() {
-                    if (!this.selectedCharacter || !this.selectedCharacter.career_history) {
-                        return { personal: false, service: false, advanced: false, education: false };
-                    }
-                    // Find the most recent skill resolution event to get available tables
-                    const skillEvents = this.selectedCharacter.career_history.filter(event => 
-                        event.event_type === 'skill_resolution' && event.available_tables
-                    );
-                    if (skillEvents.length > 0) {
-                        return skillEvents[skillEvents.length - 1].available_tables;
-                    }
-                    // Fallback: use current education stat
-                    let edu = 0;
-                    if (this.selectedCharacter.characteristics && typeof this.selectedCharacter.characteristics.education === 'number') {
-                        edu = this.selectedCharacter.characteristics.education;
-                    }
-                    return {
-                        personal: true,
-                        service: true,
-                        advanced: true,
-                        education: edu >= 8
-                    };
-                },
-                
-                formatSkillsForDisplay() {
-                    if (!this.hasSkills()) return '';
-                    
-                    return Object.entries(this.selectedCharacter.skills)
-                        .map(([skill, level]) => `${skill}-${level}`)
-                        .join(', ');
-                },
-                
-                updateTermTracking() {
-                    if (!this.selectedCharacter) return;
-                    
-                    // Reset tracking if we're in a new term OR if character just enlisted
-                    const justEnlisted = this.selectedCharacter.career && 
-                                       this.selectedCharacter.career_history && 
-                                       this.selectedCharacter.career_history.length > 0 && 
-                                       this.selectedCharacter.career_history[this.selectedCharacter.career_history.length - 1].event_type === 'enlistment_attempt';
-                    
-                    if (this.currentTermNumber !== this.selectedCharacter.terms_served || justEnlisted) {
-                        this.currentTermNumber = this.selectedCharacter.terms_served;
-                        this.commissionAttemptedThisTerm = false;
-                        this.promotionAttemptedThisTerm = false;
-                        this.survivalAttemptedThisTerm = false;
-                        this.ageingCheckedThisTerm = false;
-                    }
-                    
-                    // Check if commission, promotion, or survival was attempted THIS TERM
-                    if (this.selectedCharacter.career_history) {
-                        // Find events that happened after the start of current term
-                        const currentTermStartIndex = this.findCurrentTermStartIndex();
-                        const thisTermEvents = this.selectedCharacter.career_history.slice(currentTermStartIndex);
-                        
-                        if (thisTermEvents.some(event => event.event_type === 'commission_check')) {
-                            this.commissionAttemptedThisTerm = true;
-                        }
-                        if (thisTermEvents.some(event => event.event_type === 'promotion_check')) {
-                            this.promotionAttemptedThisTerm = true;
-                        }
-                        if (thisTermEvents.some(event => event.event_type === 'survival_check')) {
-                            this.survivalAttemptedThisTerm = true;
-                        }
-                    }
-                },
+        document.getElementById('create-character-btn').onclick = function() {
+            fetch('/api/create_character', {method: 'POST'})
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('char-name').textContent = data.name;
+                    document.getElementById('char-age').textContent = 'Age: ' + data.age;
+                    document.getElementById('char-terms').textContent = 'Terms: ' + data.terms_served;
+                    document.getElementById('upp-string').textContent = data.upp || '______';
+                    document.getElementById('char-service').textContent = 'Service';
+                    updateSidebarRankTitle(null, data.name, null);
+                });
+        };
 
-                findCurrentTermStartIndex() {
-                    if (!this.selectedCharacter.career_history) return 0;
-                    
-                    const events = this.selectedCharacter.career_history;
-                    
-                    // Find the most recent reenlistment or enlistment that started current term
-                    for (let i = events.length - 1; i >= 0; i--) {
-                        const event = events[i];
-                        if (event.event_type === 'survival_check') {
-                            // Events after this survival check are in the new term
-                            return i + 1;
-                        }
-                        if (event.event_type === 'reenlistment_attempt' && event.continue_career) {
-                            // Events after successful reenlistment are in the new term
-                            return i + 1;
-                        }
-                        if (event.event_type === 'enlistment_attempt') {
-                            // Events after enlistment are in the first term
-                            return i + 1;
-                        }
-                    }
-                    
-                    return 0;
-                },
-                
-                canAttemptSurvival() {
-                    return this.selectedCharacter && 
-                           this.selectedCharacter.career &&
-                           !this.survivalAttemptedThisTerm &&
-                           this.needsSurvivalCheck();
-                },
-                
-                needsSurvivalCheck() {
-                    // Check if character needs survival check for current term
-                    if (!this.selectedCharacter.career_history) return false;
-                    
-                    const events = this.selectedCharacter.career_history;
-                    const lastEvent = events[events.length - 1];
-                    
-                    // Case 1: After any enlistment attempt (first term) - both enlisted and drafted need survival checks
-                    if (lastEvent && lastEvent.event_type === 'enlistment_attempt') {
-                        // Check if there's already a survival check after enlistment
-                        const enlistmentIndex = events.length - 1;
-                        for (let i = enlistmentIndex + 1; i < events.length; i++) {
-                            if (events[i].event_type === 'survival_check') {
-                                return false; // Already have survival check
-                            }
-                        }
-                        return true; // Need survival check for first term
-                    }
-                    
-                    // Case 2: After successful reenlistment (subsequent terms)
-                    if (lastEvent && 
-                        lastEvent.event_type === 'reenlistment_attempt' && 
-                        lastEvent.continue_career) {
-                        return !this.hasRecentSurvivalCheck();
-                    }
-                    
-                    return false;
-                },
-                
-                hasRecentSurvivalCheck() {
-                    // Check if there's a survival check after the last reenlistment
-                    if (!this.selectedCharacter.career_history) return false;
-                    
-                    const events = this.selectedCharacter.career_history;
-                    let lastReenlistmentIndex = -1;
-                    
-                    for (let i = events.length - 1; i >= 0; i--) {
-                        if (events[i].event_type === 'reenlistment_attempt' && events[i].continue_career) {
-                            lastReenlistmentIndex = i;
-                            break;
-                        }
-                    }
-                    
-                    if (lastReenlistmentIndex === -1) return false;
-                    
-                    // Check if there's a survival check after this reenlistment
-                    for (let i = lastReenlistmentIndex + 1; i < events.length; i++) {
-                        if (events[i].event_type === 'survival_check') {
-                            return true;
-                        }
-                    }
-                    
-                    return false;
-                },
-                
-                canAttemptCommission() {
-                    return this.selectedCharacter && 
-                           this.selectedCharacter.career &&
-                           !this.selectedCharacter.commissioned &&
-                           !this.commissionAttemptedThisTerm &&
-                           this.survivalAttemptedThisTerm &&
-                           !this.selectedCharacter.drafted && // Drafted characters cannot be commissioned
-                           !this.isCharacterInjured(); // Injured characters cannot be commissioned
-                },
-                
-                canAttemptPromotion() {
-                    // Check if already promoted this term
-                    if (this.selectedCharacter && this.selectedCharacter.terms && this.selectedCharacter.terms.length > 0) {
-                        const currentTerm = this.selectedCharacter.terms[this.selectedCharacter.terms.length - 1];
-                        if (currentTerm.promotions && currentTerm.promotions.length > 0) {
-                            return false; // Already promoted this term
-                        }
-                    }
-                    
-                    return this.selectedCharacter && 
-                           this.selectedCharacter.career &&
-                           this.selectedCharacter.commissioned &&
-                           !this.promotionAttemptedThisTerm &&
-                           this.survivalAttemptedThisTerm &&
-                           !this.isCharacterInjured(); // Injured characters cannot be promoted
-                },
-                
-                canRetire() {
-                    return this.selectedCharacter && 
-                           this.selectedCharacter.terms_served >= 5;
-                },
-                
-                isCharacterInjured() {
-                    // Check if character was injured in the current term
-                    if (!this.selectedCharacter || !this.selectedCharacter.terms) return false;
-                    
-                    // Get the most recent term
-                    const currentTerm = this.selectedCharacter.terms[this.selectedCharacter.terms.length - 1];
-                    return currentTerm && currentTerm.survival === "injured";
-                },
-                
-                async generateCharacteristic(characteristicName) {
-                    this.loading = true;
-                    this.error = '';
-                    
-                    try {
-                        const response = await axios.post(`/api/character/${this.currentCharacterId}/characteristic/${characteristicName}`);
-                        if (response.data.success) {
-                            // Reload character data
-                            await this.viewCharacter(this.currentCharacterId);
-                        } else {
-                            this.error = response.data.error || `Failed to generate ${characteristicName}`;
-                        }
-                    } catch (error) {
-                        this.error = `Failed to generate ${characteristicName}: ` + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async attemptEnlistment() {
-                    this.loading = true;
-                    this.error = '';
-                    this.success = '';
-                    
-                    try {
-                        const response = await axios.post(`/api/character/${this.currentCharacterId}/enlist`, {
-                            service: this.selectedService
-                        });
-                        
-                        if (response.data.success) {
-                            this.success = `${response.data.outcome}! Assigned to ${response.data.assigned_service}`;
-                            this.selectedService = '';
-                            // Reload character data
-                            await this.viewCharacter(this.currentCharacterId);
-                        } else {
-                            this.error = response.data.error || 'Enlistment failed';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to process enlistment: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async checkSurvival() {
-                    this.loading = true;
-                    this.error = '';
-                    this.success = '';
-                    
-                    try {
-                        const response = await axios.post(`/api/character/${this.currentCharacterId}/survival`);
-                        
-                        if (response.data.success) {
-                            this.survivalAttemptedThisTerm = true;
-                            
-                            if (response.data.survived) {
-                                this.success = `Survived the term! Age: ${response.data.new_age}, Terms: ${response.data.new_terms_served}`;
-                            } else {
-                                this.success = `Survival check failed: ${response.data.outcome}`;
-                            }
-                            // Reload character data
-                            await this.viewCharacter(this.currentCharacterId);
-                        } else {
-                            this.error = response.data.error || 'Survival check failed';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to process survival: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async checkCommission() {
-                    this.loading = true;
-                    this.error = '';
-                    this.success = '';
-                    
-                    try {
-                        const response = await axios.post(`/api/character/${this.currentCharacterId}/commission`);
-                        
-                        if (response.data.success) {
-                            this.commissionAttemptedThisTerm = true;
-                            
-                            if (response.data.commissioned) {
-                                this.success = 'Successfully commissioned as an officer!';
-                            } else {
-                                this.success = 'Commission attempt failed, remaining enlisted.';
-                            }
-                            // Reload character data
-                            await this.viewCharacter(this.currentCharacterId);
-                        } else {
-                            this.error = response.data.error || 'Commission check failed';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to process commission: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async checkPromotion() {
-                    this.loading = true;
-                    this.error = '';
-                    this.success = '';
-                    
-                    try {
-                        const response = await axios.post(`/api/character/${this.currentCharacterId}/promotion`);
-                        
-                        if (response.data.success) {
-                            this.promotionAttemptedThisTerm = true;
-                            
-                            if (response.data.promoted) {
-                                this.success = `Successfully promoted to rank ${response.data.new_rank}!`;
-                            } else {
-                                this.success = 'Promotion attempt failed, rank unchanged.';
-                            }
-                            // Reload character data
-                            await this.viewCharacter(this.currentCharacterId);
-                        } else {
-                            this.error = response.data.error || 'Promotion check failed';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to process promotion: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async resolveSkill() {
-                    this.loading = true;
-                    this.error = '';
-                    this.success = '';
-                    try {
-                        const response = await axios.post(`/api/character/${this.currentCharacterId}/skill`, {
-                            table_choice: this.selectedSkillTable
-                        });
-                        if (response.data.success) {
-                            const tableName = response.data.table_used.charAt(0).toUpperCase() + response.data.table_used.slice(1);
-                            this.success = `Skill gained from ${tableName} table: ${response.data.skill_gained}`;
-                            this.selectedSkillTable = '';
-                            // Reload character data
-                            await this.viewCharacter(this.currentCharacterId);
-                            // If all skills are now resolved, check for ageing
-                            if (this.selectedCharacter.skill_eligibility === 0 && !this.ageingCheckedThisTerm) {
-                                await this.checkAgeingAfterSkills();
-                            }
-                        } else {
-                            this.error = response.data.error || 'Skill resolution failed';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to resolve skill: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                // Add a new method for the ageing check after skills
-                async checkAgeingAfterSkills() {
-                    this.loading = true;
-                    try {
-                        const response = await axios.post(`/api/character/${this.currentCharacterId}/check-ageing-after-skills`);
-                        if (response.data.success && response.data.ageing_applicable) {
-                            // Show ageing results in the success message
-                            if (response.data.total_effects > 0) {
-                                this.success = `⏰ Ageing check: Age ${response.data.previous_age} → ${response.data.current_age}. Effects: ${response.data.ageing_effects.join(', ')}`;
-                            } else {
-                                this.success = `⏰ Ageing check: Age ${response.data.previous_age} → ${response.data.current_age}. No ageing effects.`;
-                            }
-                            // Reload character data to show updated career history
-                            await this.viewCharacter(this.currentCharacterId);
-                        }
-                        // Mark that we've checked ageing this term
-                        this.ageingCheckedThisTerm = true;
-                    } catch (error) {
-                        this.error = 'Failed to check ageing: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async attemptReenlistment() {
-                    this.loading = true;
-                    this.error = '';
-                    this.success = '';
-                    
-                    try {
-                        const response = await axios.post(`/api/character/${this.currentCharacterId}/reenlist`, {
-                            preference: this.selectedReenlistmentChoice
-                        });
-                        
-                        if (response.data.success) {
-                            this.success = `Decision result: ${response.data.outcome} (rolled ${response.data.roll} vs target ${response.data.target})`;
-                            this.selectedReenlistmentChoice = '';
-                            
-                            // Reset term tracking for new term if continuing career
-                            if (response.data.continue_career) {
-                                this.commissionAttemptedThisTerm = false;
-                                this.promotionAttemptedThisTerm = false;
-                                this.survivalAttemptedThisTerm = false;
-                            }
-                            
-                            // Handle mustering out if character failed re-enlistment
-                            if (!response.data.continue_career && response.data.mustering_out_info) {
-                                this.musteringOutInfo = response.data.mustering_out_info;
-                                this.selectedCashRolls = this.musteringOutInfo.max_cash_rolls; // Default to max cash rolls
-                                this.success += ` Character is eligible for mustering out with ${this.musteringOutInfo.total_rolls} rolls.`;
-                            }
-                            
-                            // Reload character data
-                            await this.viewCharacter(this.currentCharacterId);
-                        } else {
-                            this.error = response.data.error || 'Reenlistment failed';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to process reenlistment: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                async performMusteringOut() {
-                    this.loading = true;
-                    this.error = '';
-                    this.success = '';
-                    
-                    try {
-                        const response = await axios.post(`/api/character/${this.currentCharacterId}/muster-out`, {
-                            cash_rolls: this.selectedCashRolls
-                        });
-                        
-                        if (response.data.success) {
-                            const benefits = response.data.mustering_out_benefits;
-                            let resultsHtml = '<div class="mustering-results"><h6>🎖️ Mustering Out Results</h6>';
-                            
-                            // Show summary of results
-                            const cashAmount = benefits.cash || 0;
-                            const items = benefits.items || [];
-                            const characteristicBoosts = benefits.characteristic_boosts || {};
-                            
-                            if (cashAmount > 0) {
-                                resultsHtml += `<div><strong>Cash:</strong> Cr${cashAmount.toLocaleString()}</div>`;
-                            }
-                            
-                            if (items.length > 0) {
-                                resultsHtml += `<div><strong>Items:</strong> ${items.join(', ')}</div>`;
-                            }
-                            
-                            if (Object.keys(characteristicBoosts).length > 0) {
-                                const boostText = Object.entries(characteristicBoosts)
-                                    .map(([stat, boost]) => ` +${boost} ${stat.toUpperCase()}`)
-                                    .join(',');
-                                resultsHtml += `<div><strong>Characteristic Boosts:</strong>${boostText}</div>`;
-                            }
-                            
-                            resultsHtml += '</div>';
-                            this.success = resultsHtml;
-                            
-                            // Clear mustering out info
-                            this.musteringOutInfo = null;
-                            this.selectedCashRolls = null;
-                            
-                            // Reload character data
-                            await this.viewCharacter(this.currentCharacterId);
-                        } else {
-                            this.error = response.data.error || 'Mustering out failed';
-                        }
-                    } catch (error) {
-                        this.error = 'Failed to process mustering out: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-                
-                getCashRollOptions() {
-                    if (!this.musteringOutInfo) return [];
-                    const options = [];
-                    for (let i = 0; i <= Math.min(3, this.musteringOutInfo.total_rolls); i++) {
-                        const benefitRolls = this.musteringOutInfo.total_rolls - i;
-                        options.push({
-                            value: i,
-                            label: `${i} cash, ${benefitRolls} benefits`
-                        });
-                    }
-                    return options;
-                },
+        // Helper to update the UPP string in the UI
+        function updateUPPSlot(index, hexChar) {
+            let upp = document.getElementById('upp-string').textContent.split('');
+            upp[index] = hexChar;
+            document.getElementById('upp-string').textContent = upp.join('');
+        }
 
-                getDisplayName() {
-                    if (!this.selectedCharacter) return '';
-                    
-                    // Only add rank prefix for commissioned officers in services with ranks
-                    if (this.selectedCharacter.commissioned && 
-                        this.selectedCharacter.career && 
-                        ['Navy', 'Marines', 'Army', 'Merchants'].includes(this.selectedCharacter.career)) {
-                        
-                        const rank = this.selectedCharacter.rank || 0;
-                        const rankTitles = {
-                            'Navy': ['Enlisted', 'Ensign', 'Lieutenant', 'Lt. Commander', 'Commander', 'Captain', 'Admiral'],
-                            'Marines': ['Enlisted', 'Lieutenant', 'Captain', 'Major', 'Lt. Colonel', 'Colonel', 'General'],
-                            'Army': ['Enlisted', 'Lieutenant', 'Captain', 'Major', 'Lt. Colonel', 'Colonel', 'General'],
-                            'Merchants': ['Enlisted', '4th Officer', '3rd Officer', '2nd Officer', '1st Officer', 'Captain']
-                        };
-                        
-                        const title = rankTitles[this.selectedCharacter.career][rank] || 'Officer';
-                        return `${title} ${this.selectedCharacter.name}`;
-                    }
-                    
-                    return this.selectedCharacter.name;
-                },
+        // Map characteristic to UPP slot index
+        const charToUPPIndex = {
+            'strength': 0,
+            'dexterity': 1,
+            'endurance': 2,
+            'intelligence': 3,
+            'education': 4,
+            'social': 5
+        };
 
-                formatTermsDisplay() {
-                    if (!this.selectedCharacter) return '';
-                    
-                    const termsServed = this.selectedCharacter.terms_served;
-                    
-                    // Check if character has a fractional term (0.5)
-                    if (termsServed % 1 !== 0) {
-                        // Character was separated mid-term, determine the reason
-                        const separationReason = this.getSeparationReason();
-                        const completedTerms = Math.floor(termsServed);
-                        
-                        if (completedTerms === 0) {
-                            return `0 terms (${separationReason})`;
-                        } else {
-                            return `${completedTerms} terms (${separationReason})`;
+        // Track how many characteristic buttons remain
+        let remainingCharButtons = 6;
+
+        function setupCharacteristicButton(btnId, charName) {
+            document.getElementById(btnId).onclick = function() {
+                fetch('/api/generate_characteristic', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({characteristic: charName})
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // Hide the button
+                    document.getElementById(btnId).style.display = 'none';
+                    remainingCharButtons--;
+                    // Only update the UPP string when the last characteristic is rolled
+                    if (data.upp) {
+                        document.getElementById('upp-string').textContent = data.upp;
+                    }
+                    // If this was the last button, hide the whole section
+                    if (remainingCharButtons === 0) {
+                        document.getElementById('characteristics-section').style.display = 'none';
+                    }
+                });
+            };
+        }
+
+        setupCharacteristicButton('strength-btn', 'strength');
+        setupCharacteristicButton('dexterity-btn', 'dexterity');
+        setupCharacteristicButton('endurance-btn', 'endurance');
+        setupCharacteristicButton('intelligence-btn', 'intelligence');
+        setupCharacteristicButton('education-btn', 'education');
+        setupCharacteristicButton('social-btn', 'social');
+
+        // Enlistment button setup (add this after your characteristic setup)
+        function setupEnlistmentButton(btnId, serviceName) {
+            document.getElementById(btnId).onclick = function() {
+                fetch('/api/enlist', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({service: serviceName})
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // Hide all enlistment buttons
+                    document.getElementById('navy-btn').style.display = 'none';
+                    document.getElementById('marines-btn').style.display = 'none';
+                    document.getElementById('army-btn').style.display = 'none';
+                    document.getElementById('scouts-btn').style.display = 'none';
+                    document.getElementById('merchants-btn').style.display = 'none';
+                    document.getElementById('others-btn').style.display = 'none';
+                    // Show result in the event record area
+                    if (data.success) {
+                        // Show service and outcome after the word Service
+                        const service = data.enlistment_result.assigned_service || data.career || '';
+                        const outcome = data.enlistment_result.outcome || '';
+                        document.getElementById('char-service').textContent = `Service: ${service} (${outcome})`;
+                        // Update top bar and sidebar with service and blank rank (enlisted, not commissioned)
+                        const name = document.getElementById('char-name').textContent;
+                        updateRankDisplay(0, service); // 0 = no rank yet
+                        updateSidebarRankTitle(0, name, service);
+                        // Populate the event-record middle panel
+                        const result = data.enlistment_result;
+                        const eventSections = document.querySelectorAll('.event-record .event-section');
+                        if (eventSections.length >= 6) {
+                            eventSections[0].querySelector('.event-label').textContent = 'Conditions: ' + (result.modifier_details && result.modifier_details.length ? result.modifier_details.join(', ') : 'None');
+                            eventSections[1].querySelector('.event-label').textContent = 'Test: Enlistment';
+                            eventSections[2].querySelector('.event-label').textContent = 'Target: ' + (result.target !== undefined ? result.target : '');
+                            eventSections[3].querySelector('.event-label').textContent = 'Roll: ' + (result.roll !== undefined ? result.roll : '');
+                            eventSections[4].querySelector('.event-label').textContent = 'Modifiers: ' + (result.modifier !== undefined ? result.modifier : '');
+                            // Explicitly update the Outcome field
+                            eventSections.forEach(section => {
+                                const label = section.querySelector('.event-label');
+                                if (label && label.textContent.trim().startsWith('Outcome')) {
+                                    label.textContent = 'Outcome: ' + (result.outcome || '');
+                                }
+                            });
                         }
+                    } else {
+                        alert(data.error || "Enlistment failed.");
                     }
-                    
-                    return termsServed.toString();
-                },
+                });
+            };
+        }
 
-                getSeparationReason() {
-                    if (!this.selectedCharacter || !this.selectedCharacter.career_history) return 'separated';
-                    
-                    // Find the last reenlistment attempt
-                    const events = this.selectedCharacter.career_history;
-                    for (let i = events.length - 1; i >= 0; i--) {
-                        const event = events[i];
-                        if (event.event_type === 'reenlistment_attempt') {
-                            if (event.outcome === 'medical_discharge') {
-                                return 'medical discharge';
-                            } else if (event.outcome === 'discharged') {
-                                return this.selectedCharacter.terms_served >= 5 ? 'military discharge' : 'military discharge';
-                            } else if (event.outcome === 'retired') {
-                                return 'retired';
-                            } else if (event.preference === 'discharge') {
-                                return 'discharged';
-                            } else if (event.preference === 'retire') {
-                                return 'retired';
-                            }
-                            // If failed reenlistment roll
-                            return 'military discharge';
-                        }
-                    }
-                    
-                    // Check if character was injured (for medical discharge)
-                    for (let i = events.length - 1; i >= 0; i--) {
-                        const event = events[i];
-                        if (event.event_type === 'survival_check' && event.outcome === 'injured') {
-                            return 'medical discharge';
-                        }
-                    }
-                    
-                    return 'separated';
-                },
+        setupEnlistmentButton('navy-btn', 'Navy');
+        setupEnlistmentButton('marines-btn', 'Marines');
+        setupEnlistmentButton('army-btn', 'Army');
+        setupEnlistmentButton('scouts-btn', 'Scouts');
+        setupEnlistmentButton('merchants-btn', 'Merchants');
+        setupEnlistmentButton('others-btn', 'Others');
 
-                canResolveSkills() {
-                    // Skills can only be resolved after all required checks are completed
-                    if (!this.selectedCharacter || !this.selectedCharacter.skill_eligibility || this.selectedCharacter.skill_eligibility === 0) {
-                        return false;
-                    }
-                    
-                    // Must have completed survival check first
-                    if (!this.survivalAttemptedThisTerm) {
-                        return false;
-                    }
-                    
-                    // If character was injured, they can't do commission/promotion checks, so skills are available
-                    if (this.isCharacterInjured()) {
-                        return true;
-                    }
-                    
-                    // For non-injured characters, check if commission and promotion checks are completed (if applicable)
-                    return this.allRequiredChecksCompleted();
-                },
-                
-                allRequiredChecksCompleted() {
-                    // Check if all required commission and promotion checks are completed
-                    const needsCommission = this.selectedCharacter && 
-                                          this.selectedCharacter.career &&
-                                          !this.selectedCharacter.commissioned &&
-                                          ['Navy', 'Marines', 'Army', 'Merchants'].includes(this.selectedCharacter.career);
-                    
-                    // Check if promotion is actually available and needed this term
-                    const needsPromotion = this.canAttemptPromotion();
-                    
-                    // If commission is needed but not attempted, not ready for skills
-                    if (needsCommission && !this.commissionAttemptedThisTerm) {
-                        return false;
-                    }
-                    
-                    // If promotion is needed but not attempted, not ready for skills
-                    if (needsPromotion && !this.promotionAttemptedThisTerm) {
-                        return false;
-                    }
-                    
-                    return true;
-                },
+        // Map service and rank number to title
+        const serviceRankTitles = {
+            Navy:       ['', 'Ensign', 'Lieutenant', 'Lt Cmdr', 'Commander', 'Captain', 'Admiral'],
+            Army:       ['', 'Lieutenant', 'Captain', 'Major', 'Lt Colonel', 'Colonel', 'General'],
+            Marines:    ['', 'Lieutenant', 'Captain', 'Major', 'Lt Colonel', 'Colonel', 'General'],
+            Merchants:  ['', '4th Officer', '3rd Officer', '2nd Officer', '1st Officer', 'Captain'],
+            Scouts:     ['', ''],
+            Others:     ['', '']
+        };
 
-                needsReenlistmentDecision() {
-                    // Character needs reenlistment decision if:
-                    // 1. They have a career
-                    // 2. They have completed survival check this term
-                    // 3. Either they are injured (immediate medical discharge) OR all skills are resolved
-                    if (!this.selectedCharacter || !this.selectedCharacter.career) {
-                        return false;
-                    }
-                    
-                    // Must have completed survival check
-                    if (!this.survivalAttemptedThisTerm) {
-                        return false;
-                    }
-                    
-                    // If injured, immediate reenlistment decision (medical discharge)
-                    if (this.isCharacterInjured()) {
-                        return true;
-                    }
-                    
-                    // For non-injured characters, reenlistment only appears when all skills are resolved
-                    if (this.selectedCharacter.skill_eligibility > 0) {
-                        return false;
-                    }
-                    
-                    return true;
+        function updateRankDisplay(rank, service) {
+            let rankText = '';
+            if (rank && service && serviceRankTitles[service] && serviceRankTitles[service][rank]) {
+                rankText = serviceRankTitles[service][rank];
+            }
+            // Left: Rank title
+            document.getElementById('char-rank').textContent = rankText ? rankText : '';
+            // Right: Rank number
+            document.getElementById('char-rank-number').textContent = (rank && rank > 0) ? `Rank: ${rank}` : '';
+        }
+
+        function updateSidebarRankTitle(rank, name, service) {
+            let title = '';
+            if (rank && service && serviceRankTitles[service] && serviceRankTitles[service][rank]) {
+                title = serviceRankTitles[service][rank] + ' ';
+            }
+            document.getElementById('sidebar-rank-title').textContent = title;
+            document.getElementById('sidebar-name-left').textContent = name || '';
+        }
+
+        // Helper to render the skills list in the top panel
+        function renderSkills(skills) {
+            // Find the skills section by looking for the section-label that contains "Skills"
+            const skillsLabels = document.querySelectorAll('.section-label');
+            let skillsSection = null;
+            for (let label of skillsLabels) {
+                if (label.textContent.includes('Skills')) {
+                    skillsSection = label.parentElement;
+                    break;
                 }
             }
-        }).mount('#app');
+            
+            if (!skillsSection) return;
+            
+            let skillsList = skills && Object.keys(skills).length > 0
+                ? Object.entries(skills).map(([name, level]) => `<div>${name} - ${level}</div>`).join('')
+                : '<div>No skills yet</div>';
+            
+            // Remove any existing list
+            let oldList = skillsSection.querySelector('.skills-list');
+            if (oldList) oldList.remove();
+            
+            // Add new list
+            const div = document.createElement('div');
+            div.className = 'skills-list';
+            div.innerHTML = skillsList;
+            skillsSection.appendChild(div);
+        }
+
+        // Helper to show/hide only available skill table buttons
+        function updateSkillButtons(availableTables) {
+            const skillButtonMap = {
+                personal: 'personal-btn',
+                service: 'service-btn',
+                advanced: 'advanced-btn',
+                education: 'education-skill-btn'
+            };
+            Object.entries(skillButtonMap).forEach(([table, btnId]) => {
+                const btn = document.getElementById(btnId);
+                if (btn) {
+                    btn.style.display = (availableTables && availableTables[table]) ? '' : 'none';
+                }
+            });
+        }
+
+        // Hybrid approach: Frontend manages immediate UI, backend remains source of truth
+        let frontendSkillEligibility = 0;
+        let syncInProgress = false;
+        let ageingTriggered = false; // Add guard to prevent multiple ageing calls
+
+        // Helper to update skill eligibility counter in sidebar
+        function updateSkillEligibilityCounter(skillEligibility) {
+            let prev = frontendSkillEligibility;
+            frontendSkillEligibility = skillEligibility;
+            let counter = document.getElementById('skill-eligibility-counter');
+            if (!counter) {
+                counter = document.createElement('div');
+                counter.id = 'skill-eligibility-counter';
+                counter.className = 'section-title';
+                // Find the skills section in the sidebar
+                const skillsLabels = document.querySelectorAll('.section-title');
+                let skillsSection = null;
+                for (let label of skillsLabels) {
+                    if (label.textContent.includes('Skills')) {
+                        skillsSection = label.parentElement;
+                        break;
+                    }
+                }
+                if (skillsSection) {
+                    skillsSection.insertBefore(counter, skillsSection.firstChild);
+                }
+            }
+            counter.textContent = `Skill Rolls Left: ${skillEligibility}`;
+            // Update the top panel counter
+            let topCounter = document.getElementById('top-skill-eligibility');
+            if (topCounter) {
+                topCounter.textContent = `Skill Rolls: ${skillEligibility}`;
+                topCounter.style.display = skillEligibility > 0 ? '' : 'none';
+                // Animate if incremented
+                if (skillEligibility > prev) {
+                    topCounter.style.transition = 'background 0.3s, color 0.3s';
+                    topCounter.style.background = '#0ff';
+                    topCounter.style.color = '#000';
+                    setTimeout(() => {
+                        topCounter.style.background = '';
+                        topCounter.style.color = '#0ff';
+                    }, 400);
+                }
+            }
+            // Hide skill buttons when eligibility reaches 0
+            if (skillEligibility <= 0) {
+                const skillButtons = ['personal-btn', 'service-btn', 'advanced-btn', 'education-skill-btn'];
+                skillButtons.forEach(btnId => {
+                    const btn = document.getElementById(btnId);
+                    if (btn) {
+                        btn.style.display = 'none';
+                    }
+                });
+                // Hide the skills card/section if present
+                let skillsSection = null;
+                const skillsLabels = document.querySelectorAll('.section-title');
+                for (let label of skillsLabels) {
+                    if (label.textContent.includes('Skills')) {
+                        skillsSection = label.parentElement;
+                        break;
+                    }
+                }
+                if (skillsSection) {
+                    skillsSection.style.display = 'none';
+                }
+                
+                // Only trigger ageing once when eligibility first reaches zero
+                if (!ageingTriggered) {
+                    ageingTriggered = true;
+                    
+                    // Check if we need ageing checks (term 4+)
+                    const currentAge = parseInt(document.getElementById('char-age').textContent.match(/\d+/)[0]);
+                    const termsServed = parseInt(document.getElementById('char-terms').textContent.match(/\d+/)[0]);
+                    
+                    if (termsServed >= 4) {
+                        // Show ageing button for term 4+
+                        const ageingBtn = document.getElementById('ageing-btn');
+                        if (ageingBtn) {
+                            ageingBtn.style.display = '';
+                        }
+                        // Trigger ageing process
+                        fetch('/api/ageing', { method: 'POST' })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Display ageing results in the event record panel
+                                    const eventSections = document.querySelectorAll('.event-record .event-section');
+                                    if (eventSections.length >= 6) {
+                                        eventSections[0].querySelector('.event-label').textContent = 'Ageing Check';
+                                        eventSections[1].querySelector('.event-label').textContent = 'Previous Age: ' + (data.ageing_result.previous_age || '');
+                                        eventSections[2].querySelector('.event-label').textContent = 'Current Age: ' + (data.ageing_result.current_age || '');
+                                        eventSections[3].querySelector('.event-label').textContent = 'Effects: ' + (Array.isArray(data.ageing_result.ageing_effects) ? data.ageing_result.ageing_effects.join(', ') : 'None');
+                                        eventSections[4].querySelector('.event-label').textContent = 'Total Effects: ' + (data.ageing_result.total_effects || 0);
+                                        eventSections[5].querySelector('.event-label').textContent = '';
+                                    }
+                                    // Update age in the character record UI
+                                    if (data.character && typeof data.character.age !== 'undefined') {
+                                        document.getElementById('char-age').textContent = 'Age: ' + data.character.age;
+                                    }
+                                    // Optionally update stats/UPP if needed
+                                    if (data.character && data.character.upp) {
+                                        document.getElementById('upp-string').textContent = data.character.upp;
+                                    }
+                                } else {
+                                    alert(data.error || 'Ageing process failed.');
+                                }
+                            });
+                    } else {
+                        // For terms 0-3, just increment age by 4 without ageing checks
+                        const newAge = currentAge + 4;
+                        document.getElementById('char-age').textContent = 'Age: ' + newAge;
+                        
+                        // Display simple age increment in event record
+                        const eventSections = document.querySelectorAll('.event-record .event-section');
+                        if (eventSections.length >= 6) {
+                            eventSections[0].querySelector('.event-label').textContent = 'Age Increment';
+                            eventSections[1].querySelector('.event-label').textContent = 'Previous Age: ' + currentAge;
+                            eventSections[2].querySelector('.event-label').textContent = 'Current Age: ' + newAge;
+                            eventSections[3].querySelector('.event-label').textContent = 'Effects: None (too young)';
+                            eventSections[4].querySelector('.event-label').textContent = 'Total Effects: 0';
+                            eventSections[5].querySelector('.event-label').textContent = '';
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update skill UI after backend event
+        function updateSkillUIFromBackend(data) {
+            console.log('updateSkillUIFromBackend called with:', data);
+            
+            if (data.available_tables) {
+                console.log('Updating available tables:', data.available_tables);
+                updateSkillButtons(data.available_tables);
+            }
+            if (typeof data.skill_eligibility === 'number') {
+                console.log(`Updating skill eligibility from ${frontendSkillEligibility} to ${data.skill_eligibility}`);
+                updateSkillEligibilityCounter(data.skill_eligibility);
+            }
+        }
+
+        // Patch setSkillUIVisibility to also update available tables
+        function setSkillUIVisibility(ready, availableTables, skillEligibility) {
+            updateSkillButtons(availableTables);
+            let counter = document.getElementById('skill-eligibility-counter');
+            if (counter) {
+                counter.style.display = ready ? '' : 'none';
+            }
+            if (typeof skillEligibility === 'number') {
+                updateSkillEligibilityCounter(skillEligibility);
+            }
+            
+            // Show/hide the skills section based on readiness
+            const skillsSection = document.querySelector('.section-title');
+            if (skillsSection && skillsSection.textContent.includes('Skills')) {
+                const skillsParent = skillsSection.parentElement;
+                if (ready) {
+                    skillsParent.style.display = '';
+                } else {
+                    skillsParent.style.display = 'none';
+                }
+            }
+        }
+
+        // Call /api/resolve_skill and update UI with hybrid approach
+        function resolveSkill(table) {
+            if (syncInProgress) return; // Prevent double-clicks
+            
+            console.log(`Starting skill roll for ${table}. Frontend eligibility before: ${frontendSkillEligibility}`);
+            
+            // Optimistic update - decrement immediately
+            frontendSkillEligibility--;
+            updateSkillEligibilityCounter(frontendSkillEligibility);
+            
+            console.log(`Frontend eligibility after decrement: ${frontendSkillEligibility}`);
+            
+            syncInProgress = true;
+            fetch('/api/resolve_skill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ table })
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log('Backend response:', data);
+                
+                if (!data.success) {
+                    // Rollback on error
+                    frontendSkillEligibility++;
+                    updateSkillEligibilityCounter(frontendSkillEligibility);
+                    console.log(`Error occurred. Frontend eligibility after rollback: ${frontendSkillEligibility}`);
+                    alert(data.error || 'Skill roll failed.');
+                    return;
+                }
+                
+                // Sync with backend data
+                const backendEligibility = data.skill_eligibility;
+                console.log(`Backend eligibility: ${backendEligibility}, Frontend before sync: ${frontendSkillEligibility}`);
+                
+                frontendSkillEligibility = backendEligibility;
+                updateSkillEligibilityCounter(frontendSkillEligibility);
+                updateSkillButtons(data.available_tables);
+                
+                console.log(`Frontend eligibility after sync: ${frontendSkillEligibility}`);
+                
+                // Update skills list in top panel
+                renderSkills(data.skills);
+                
+                // Show result in the middle panel (event transparency)
+                const eventSections = document.querySelectorAll('.event-record .event-section');
+                if (eventSections.length >= 6) {
+                    eventSections[0].querySelector('.event-label').textContent = `Skill Table: ${table}`;
+                    eventSections[1].querySelector('.event-label').textContent = `Roll: ${data.skill_result.roll}`;
+                    eventSections[2].querySelector('.event-label').textContent = `Result: ${data.skill_result.skill_gained}`;
+                    eventSections[3].querySelector('.event-label').textContent = `Type: ${data.skill_result.result_type}`;
+                    eventSections[4].querySelector('.event-label').textContent = `Level: ${data.skill_result.level || ''}`;
+                    eventSections[5].querySelector('.event-label').textContent = `Eligibilities Left: ${data.skill_eligibility}`;
+                }
+            })
+            .catch(error => {
+                // Rollback on network error
+                frontendSkillEligibility++;
+                updateSkillEligibilityCounter(frontendSkillEligibility);
+                console.log(`Network error. Frontend eligibility after rollback: ${frontendSkillEligibility}`);
+                alert('Network error. Please try again.');
+            })
+            .finally(() => {
+                syncInProgress = false;
+            });
+        }
+
+        // Wire up existing skill buttons in sidebar
+        document.getElementById('personal-btn').onclick = function() {
+            resolveSkill('personal');
+        };
+        document.getElementById('service-btn').onclick = function() {
+            resolveSkill('service');
+        };
+        document.getElementById('advanced-btn').onclick = function() {
+            resolveSkill('advanced');
+        };
+        document.getElementById('education-skill-btn').onclick = function() {
+            resolveSkill('education');
+        };
+
+        // Initial setup for skills - update eligibility counter after character creation
+        // function setupSkillsAfterCharacterCreation() {
+        //     // This will be called after character creation to set initial skill eligibility
+        //     // For now, we'll assume 0 eligibilities until the character has a career
+        //     updateSkillEligibilityCounter(0);
+        // }
+
+        // Remove the call to setupSkillsAfterCharacterCreation after character creation
+        const originalCreateCharacter = document.getElementById('create-character-btn').onclick;
+        document.getElementById('create-character-btn').onclick = function() {
+            originalCreateCharacter.call(this);
+            // setupSkillsAfterCharacterCreation(); // <-- REMOVED
+        };
+
+        // Setup survival button
+        function setupSurvivalButton() {
+            document.getElementById('survival-btn').onclick = function() {
+                fetch('/api/survival', {
+                    method: 'POST'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('survival-btn').style.display = 'none';
+                    if (data.success) {
+                        const result = data.survival_result;
+                        if (result.outcome === 'survived' && 'terms_served' in data) {
+                            document.getElementById('char-terms').textContent = 'Terms: ' + data.terms_served;
+                        }
+                        setSkillUIVisibility(data.ready_for_skills, data.available_tables, data.skill_eligibility);
+                        updateSkillUIFromBackend(data);
+                        const eventSections = document.querySelectorAll('.event-record .event-section');
+                        if (eventSections.length >= 6) {
+                            eventSections[0].querySelector('.event-label').textContent = 'Conditions: ' + (result.modifier_details && result.modifier_details.length ? result.modifier_details.join(', ') : 'None');
+                            eventSections[1].querySelector('.event-label').textContent = 'Test: Survival';
+                            eventSections[2].querySelector('.event-label').textContent = 'Target: ' + (result.target !== undefined ? result.target : '');
+                            eventSections[3].querySelector('.event-label').textContent = 'Roll: ' + (result.roll !== undefined ? result.roll : '');
+                            eventSections[4].querySelector('.event-label').textContent = 'Modifiers: ' + (result.modifier !== undefined ? result.modifier : '');
+                            eventSections.forEach(section => {
+                                const label = section.querySelector('.event-label');
+                                if (label && label.textContent.trim().startsWith('Outcome')) {
+                                    label.textContent = 'Outcome: ' + (result.outcome || '');
+                                }
+                            });
+                        }
+                    } else {
+                        alert(data.error || "Survival check failed.");
+                    }
+                });
+            };
+        }
+
+        // Setup commission button
+        function setupCommissionButton() {
+            document.getElementById('commission-btn').onclick = function() {
+                fetch('/api/commission', {
+                    method: 'POST'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // Always hide commission button after use (commission only happens once)
+                    document.getElementById('commission-btn').style.display = 'none';
+                    
+                    if (data.success) {
+                        const result = data.commission_result;
+                        
+                        // If commission was successful, show promotion button
+                        if (result.success) {
+                            document.getElementById('promotion-btn').style.display = '';
+                        }
+                        
+                        const service = result.career;
+                        const name = document.getElementById('char-name').textContent;
+                        updateRankDisplay(result.rank, service);
+                        updateSidebarRankTitle(result.rank, name, service);
+                        setSkillUIVisibility(data.ready_for_skills, data.available_tables, data.skill_eligibility);
+                        updateSkillUIFromBackend(data);
+                        const eventSections = document.querySelectorAll('.event-record .event-section');
+                        if (eventSections.length >= 6) {
+                            eventSections[0].querySelector('.event-label').textContent = 'Conditions: ' + (result.modifier_details && result.modifier_details.length ? result.modifier_details.join(', ') : 'None');
+                            eventSections[1].querySelector('.event-label').textContent = 'Test: Commission';
+                            eventSections[2].querySelector('.event-label').textContent = 'Target: ' + (result.target !== undefined ? result.target : '');
+                            eventSections[3].querySelector('.event-label').textContent = 'Roll: ' + (result.roll !== undefined ? result.roll : '');
+                            eventSections[4].querySelector('.event-label').textContent = 'Modifiers: ' + (result.modifier !== undefined ? result.modifier : '');
+                            eventSections.forEach(section => {
+                                const label = section.querySelector('.event-label');
+                                if (label && label.textContent.trim().startsWith('Outcome')) {
+                                    label.textContent = 'Outcome: ' + (result.outcome || '');
+                                }
+                            });
+                        }
+                    } else {
+                        alert(data.error || "Commission check failed.");
+                    }
+                });
+            };
+        }
+
+        // Setup promotion button
+        function setupPromotionButton() {
+            document.getElementById('promotion-btn').onclick = function() {
+                fetch('/api/promotion', {
+                    method: 'POST'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('promotion-btn').style.display = 'none';
+                    if (data.success) {
+                        const result = data.promotion_result;
+                        const service = result.career;
+                        const name = document.getElementById('char-name').textContent;
+                        updateRankDisplay(result.rank, service);
+                        updateSidebarRankTitle(result.rank, name, service);
+                        setSkillUIVisibility(data.ready_for_skills, data.available_tables, data.skill_eligibility);
+                        updateSkillUIFromBackend(data);
+                        const eventSections = document.querySelectorAll('.event-record .event-section');
+                        if (eventSections.length >= 6) {
+                            eventSections[0].querySelector('.event-label').textContent = 'Conditions: ' + (result.modifier_details && result.modifier_details.length ? result.modifier_details.join(', ') : 'None');
+                            eventSections[1].querySelector('.event-label').textContent = 'Test: Promotion';
+                            eventSections[2].querySelector('.event-label').textContent = 'Target: ' + (result.target !== undefined ? result.target : '');
+                            eventSections[3].querySelector('.event-label').textContent = 'Roll: ' + (result.roll !== undefined ? result.roll : '');
+                            eventSections[4].querySelector('.event-label').textContent = 'Modifiers: ' + (result.modifier !== undefined ? result.modifier : '');
+                            eventSections.forEach(section => {
+                                const label = section.querySelector('.event-label');
+                                if (label && label.textContent.trim().startsWith('Outcome')) {
+                                    label.textContent = 'Outcome: ' + (result.outcome || '');
+                                }
+                            });
+                        }
+                    } else {
+                        alert(data.error || "Promotion check failed.");
+                    }
+                });
+            };
+        }
+
+        // Setup reenlistment button
+        function setupReenlistButton() {
+            document.getElementById('reenlist-btn').onclick = function() {
+                // Get current terms served
+                const termsServed = parseInt(document.getElementById('char-terms').textContent.match(/\d+/)[0]);
+                
+                // Display reenlistment options in the event record panel
+                const eventSections = document.querySelectorAll('.event-record .event-section');
+                if (eventSections.length >= 6) {
+                    eventSections[0].querySelector('.event-label').textContent = 'Reenlistment Decision';
+                    
+                    if (termsServed < 5) {
+                        // Terms < 5: reenlist or leave
+                        eventSections[1].querySelector('.event-label').textContent = 'Choose:';
+                        eventSections[2].querySelector('.event-label').textContent = '';
+                        eventSections[3].querySelector('.event-label').textContent = '';
+                        eventSections[4].querySelector('.event-label').textContent = '';
+                        eventSections[5].querySelector('.event-label').textContent = '';
+                        
+                        // Add reenlistment buttons
+                        const reenlistBtn = document.createElement('button');
+                        reenlistBtn.textContent = 'Reenlist';
+                        reenlistBtn.className = 'btn';
+                        reenlistBtn.style.margin = '5px';
+                        reenlistBtn.onclick = () => performReenlistment('reenlist');
+                        
+                        const leaveBtn = document.createElement('button');
+                        leaveBtn.textContent = 'Leave';
+                        leaveBtn.className = 'btn';
+                        leaveBtn.style.margin = '5px';
+                        leaveBtn.onclick = () => performReenlistment('discharge');
+                        
+                        // Clear previous buttons and add new ones
+                        eventSections[1].innerHTML = '<div class="event-label">Choose:</div>';
+                        eventSections[1].appendChild(reenlistBtn);
+                        eventSections[1].appendChild(leaveBtn);
+                    } else {
+                        // Terms >= 5: reenlist or retire
+                        eventSections[1].querySelector('.event-label').textContent = 'Choose:';
+                        eventSections[2].querySelector('.event-label').textContent = '';
+                        eventSections[3].querySelector('.event-label').textContent = '';
+                        eventSections[4].querySelector('.event-label').textContent = '';
+                        eventSections[5].querySelector('.event-label').textContent = '';
+                        
+                        // Add reenlistment buttons
+                        const reenlistBtn = document.createElement('button');
+                        reenlistBtn.textContent = 'Reenlist';
+                        reenlistBtn.className = 'btn';
+                        reenlistBtn.style.margin = '5px';
+                        reenlistBtn.onclick = () => performReenlistment('reenlist');
+                        
+                        const retireBtn = document.createElement('button');
+                        retireBtn.textContent = 'Retire';
+                        retireBtn.className = 'btn';
+                        retireBtn.style.margin = '5px';
+                        retireBtn.onclick = () => performReenlistment('retire');
+                        
+                        // Clear previous buttons and add new ones
+                        eventSections[1].innerHTML = '<div class="event-label">Choose:</div>';
+                        eventSections[1].appendChild(reenlistBtn);
+                        eventSections[1].appendChild(retireBtn);
+                    }
+                }
+            };
+        }
+
+        // Function to perform the actual reenlistment
+        function performReenlistment(preference) {
+            fetch('/api/reenlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ preference: preference })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const result = data.reenlistment_result;
+                    
+                    // Update character info
+                    if (data.character) {
+                        if (data.character.age) {
+                            document.getElementById('char-age').textContent = 'Age: ' + data.character.age;
+                        }
+                        if (data.character.terms_served !== undefined) {
+                            document.getElementById('char-terms').textContent = 'Terms: ' + data.character.terms_served;
+                        }
+                    }
+                    
+                    // Display a report in the event record (like commission/promotion)
+                    const eventSections = document.querySelectorAll('.event-record .event-section');
+                    if (eventSections.length >= 6) {
+                        eventSections[0].querySelector('.event-label').textContent = 'Test: Reenlistment';
+                        eventSections[1].querySelector('.event-label').textContent = 'Preference: ' + (result.preference || '');
+                        eventSections[2].querySelector('.event-label').textContent = 'Target: ' + (result.target !== undefined ? result.target : '');
+                        eventSections[3].querySelector('.event-label').textContent = 'Roll: ' + (result.roll !== undefined ? result.roll : '');
+                        eventSections[4].querySelector('.event-label').textContent = 'Outcome: ' + (result.outcome || '');
+                        eventSections[5].querySelector('.event-label').textContent = 'Status: ' + (result.status_text || '');
+                    }
+
+                    // Remove reenlistment dialog buttons after reenlistment
+                    if (eventSections.length >= 6) {
+                        eventSections.forEach(section => {
+                            const buttons = section.querySelectorAll('button');
+                            buttons.forEach(button => button.remove());
+                        });
+                    }
+                    
+                    // Hide reenlist button if character is discharged/retired
+                    if (!result.continue_career) {
+                        document.getElementById('reenlist-btn').style.display = 'none';
+                    } else {
+                        // Reset ageing trigger for new term
+                        ageingTriggered = false;
+                        
+                        // Hide ageing button for new term (will show again at term 4+)
+                        document.getElementById('ageing-btn').style.display = 'none';
+                        
+                        // Reset term buttons for new term
+                        document.getElementById('survival-btn').style.display = '';
+                        // Only show commission button if not already commissioned
+                        if (!data.character.commissioned) {
+                            document.getElementById('commission-btn').style.display = '';
+                        } else {
+                            document.getElementById('commission-btn').style.display = 'none';
+                        }
+                        // Only show promotion button if commissioned
+                        if (data.character.commissioned) {
+                            document.getElementById('promotion-btn').style.display = '';
+                        } else {
+                            document.getElementById('promotion-btn').style.display = 'none';
+                        }
+                        
+                        // Update skill UI with backend data
+                        setSkillUIVisibility(data.ready_for_skills, data.available_tables, data.skill_eligibility);
+                        updateSkillUIFromBackend(data);
+                        
+                        // Clear event record for new term (will be filled by next event)
+                        // (Do not clear here, let the report show)
+                    }
+                } else {
+                    alert(data.error || 'Reenlistment failed.');
+                }
+            });
+        }
+
+        setupSurvivalButton();
+        setupCommissionButton();
+        setupPromotionButton();
+        setupReenlistButton();
     </script>
 </body>
 </html>
